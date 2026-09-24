@@ -2,7 +2,8 @@
 /* THE PHYSICS GATE, headless in Node (npm test): every test model is detected, rigged and driven on a flat floor.
    Checks: 4 wheels found · settles level on its wheels · no bouncing after a drop · accelerates straight · brakes to a
    stop · turns without rolling over · no spin-out (> 15° slide) at full throttle + full lock from 100 km/h · reverses ·
-   donut (gas + handbrake + full lock: ≥ 1.5 turns in 6 s within 6 m, upright, rear wheels spinning, drives off after).
+   donut (gas + handbrake + full lock: builds up gently (< 40°/s after 0.5 s), ≤ 110°/s, ≥ 0.8 turns in 6 s, within
+   6 m, upright, rear wheels spinning, drives off after).
    Then on the course (demo/course.js): climbs 8 / 12 / 16 cm kerbs at 15 km/h without hopping · rounded bumps at
    40 km/h with the wheels (not the body) taking them · table-top at 60 · hills at 50 · kicker jump at 70, landing
    upright. Prints one line per car; exits 1 on any failure. */
@@ -120,7 +121,7 @@ for (const file of files) {
   car.reset([car.body.position[0], 0, car.body.position[2]], 0);
   run(physics, car, 1.5, {});
   const d0 = [...car.body.position];
-  let dYaw = yaw(car), dTurn = 0, dFar = 0, dUp = 1, dSpin = 0;
+  let dYaw = yaw(car), dTurn = 0, dFar = 0, dUp = 1, dSpin = 0, dRate = 0, dRate05 = 0;
   car.drive({ throttle: 1, brake: 0, steer: 1, handbrake: true });
   for (let i = 0; i < 360; i++) {
     physics.step(DT); physics.sync(1);
@@ -129,9 +130,14 @@ for (const file of files) {
     dFar = Math.max(dFar, Math.hypot(car.body.position[0] - d0[0], car.body.position[2] - d0[2]));
     dUp = Math.min(dUp, up(car));
     dSpin = Math.max(dSpin, ...car.wheels.map((w) => w.spinSlip || 0));
+    const r = Math.abs(car.body.motionProperties.angularVelocity[1]) * 180 / Math.PI;
+    dRate = Math.max(dRate, r);
+    if (i === 29) dRate05 = r;
   }
   const donutTurns = dTurn / (2 * Math.PI);
-  if (donutTurns < 1.5) fail(name, `donut: only ${donutTurns.toFixed(1)} turns in 6 s`);
+  if (donutTurns < 0.8) fail(name, `donut: only ${donutTurns.toFixed(1)} turns in 6 s`);
+  if (dRate > 110) fail(name, `donut: too fast (${dRate.toFixed(0)}°/s)`);
+  if (dRate05 > 40) fail(name, `donut: takes off too quickly (${dRate05.toFixed(0)}°/s after 0.5 s)`);
   if (dFar > 6) fail(name, `donut: wandered ${dFar.toFixed(1)} m from its spot`);
   if (dUp < 0.9) fail(name, `donut: tipped (${(Math.acos(dUp) * 180 / Math.PI).toFixed(0)}°)`);
   if (dSpin < 0.8) fail(name, 'donut: the rear wheels did not spin');
@@ -179,7 +185,7 @@ for (const file of files) {
   if (up(cc) < 0.97 || cc.grounded < 4) fail(name, `kicker jump at 70 km/h: did not land on its wheels (up ${up(cc).toFixed(2)})`);
 
   console.log(`${name.padEnd(20)} kerbs ok (air ${kerb.maxAir}) · bumps: pitch ${bumps.pitch.toFixed(1)}°, wheel travel ${(wheelTravel * 100).toFixed(0)} cm, air ${bumps.maxAir} · table-top min up ${table.minUp.toFixed(2)} · hills ${hills.minUp.toFixed(2)} · jump air ${jump.maxAir} steps`);
-  console.log(`${name.padEnd(20)} rest ${rest.y.toFixed(3)} m · 0-100 ${t100 ? t100.toFixed(1) + ' s' : '—'} · 6 s ${vmax6.toFixed(0)} km/h · stop ${dStop.toFixed(0)} m / ${tStop ? tStop.toFixed(1) : '—'} s · turn ${(turned * 180 / Math.PI).toFixed(0)}° at ${turnSpeed.toFixed(0)} km/h, min up ${minUp.toFixed(2)} · slip ${maxSlip.toFixed(1)}° · bounce ${crossings} · reverse ${rev.toFixed(0)} km/h · donut ${donutTurns.toFixed(1)} turns / 6 s within ${dFar.toFixed(1)} m`);
+  console.log(`${name.padEnd(20)} rest ${rest.y.toFixed(3)} m · 0-100 ${t100 ? t100.toFixed(1) + ' s' : '—'} · 6 s ${vmax6.toFixed(0)} km/h · stop ${dStop.toFixed(0)} m / ${tStop ? tStop.toFixed(1) : '—'} s · turn ${(turned * 180 / Math.PI).toFixed(0)}° at ${turnSpeed.toFixed(0)} km/h, min up ${minUp.toFixed(2)} · slip ${maxSlip.toFixed(1)}° · bounce ${crossings} · reverse ${rev.toFixed(0)} km/h · donut ${donutTurns.toFixed(1)} turns / 6 s, ${dRate.toFixed(0)}°/s, within ${dFar.toFixed(1)} m`);
 }
 console.log(failed ? `\n${failed} FAILED` : '\nall passed');
 process.exit(failed ? 1 : 0);

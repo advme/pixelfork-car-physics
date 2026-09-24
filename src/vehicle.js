@@ -158,7 +158,7 @@ export function createVehicle(physics, shape, o = {}) {
 
   /* ----------------------------------------------------------------- state */
   const input = { throttle: 0, brake: 0, steer: 0, handbrake: false };
-  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false, donut: 0 };
+  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false, donut: 0, donutSpin: 0 };
   derive();
   for (const w of wheels) { w.s = D.bump; w.sPrev = D.bump; w.sDraw = D.bump; }
 
@@ -207,8 +207,11 @@ export function createVehicle(physics, shape, o = {}) {
        the rear wheels spinning and sliding (blends in / out over ~0.3 s; let go of the handbrake to drive off) */
     const donutWanted = hand && tIn > 0.5 && Math.abs(input.steer) > 0.5 && !state.reversing && state.grounded >= 3
       && Math.abs(vF) < (state.donut > 0.2 ? 14 : 9);
-    state.donut = clamp(state.donut + (donutWanted ? dt / 0.3 : -dt / 0.3), 0, 1);
+    state.donut = clamp(state.donut + (donutWanted ? dt / 0.6 : -dt / 0.35), 0, 1);
     const donut = state.donut;
+    /* the rotation itself builds up more slowly, like a real car breaking traction: ~2 s to full speed */
+    state.donutSpin = clamp((state.donutSpin || 0) + (donutWanted ? dt / 2 : -dt / 0.35), 0, 1);
+    const donutSpin = state.donutSpin * state.donutSpin * (3 - 2 * state.donutSpin);
 
     /* ---- steering: input rate (quick back to centre, slower at speed), lock shrinks with speed, then the
        automatic countersteer (GTA): when the rear slides past ~3°, the wheels turn into the slide */
@@ -272,7 +275,7 @@ export function createVehicle(physics, shape, o = {}) {
     if (rpmWheels < D.launch && demand > 0.05) rpmTarget = Math.max(rpmWheels, D.idle + demand * (D.launch - D.idle));
     if (!grounded && demand > 0.05) rpmTarget = Math.max(rpmTarget, P.redline * (0.6 + 0.4 * demand));
     /* in a donut the rear wheels spin freely: the revs rise with the pedal */
-    if (donut > 0) rpmTarget = Math.max(rpmTarget, D.idle + donut * demand * (P.redline * 0.78 - D.idle));
+    if (donut > 0) rpmTarget = Math.max(rpmTarget, D.idle + (0.5 + 0.5 * donutSpin) * donut * demand * (P.redline * 0.72 - D.idle));
     state.rpm += (Math.min(rpmTarget, P.redline * 1.02) - state.rpm) * Math.min(1, dt * (state.shift > 0 ? 8 : 20));
     const x = state.rpm / P.redline;
     let torque = 0;
@@ -369,7 +372,7 @@ export function createVehicle(physics, shape, o = {}) {
         [w.contact[0] + U[0] * lift, w.contact[1] + U[1] * lift, w.contact[2] + U[2] * lift]);
 
       /* for drawing, sound and skid marks: rolls with the ground, locked by the handbrake, spins up on wheelspin */
-      const spinUp = Math.max(driven(w) ? Math.min(1, excess * 2) : 0, donutRear ? donut * demand : 0);
+      const spinUp = Math.max(driven(w) ? Math.min(1, excess * 2) : 0, donutRear ? donut * demand * (0.6 + 0.4 * donutSpin) : 0);
       w.omega = locked ? 0 : vl / w.radius + spinUp * (donutRear ? 45 : 25) * Math.sign(driveForce || 1);
       w.spin += w.omega * dt;
       const speed = Math.hypot(vl, vt);
@@ -394,13 +397,14 @@ export function createVehicle(physics, shape, o = {}) {
       const torque2 = clamp(-over * D.I.yaw * 8 * P.assist * state.assist * (grounded / n), -cap, cap);
       rigidBody.addTorque(world, body, scale(tmp, U, torque2), true);
     }
-    /* ---- donut: turn about the front axle at ~2.3–3 rad/s (one turn in ~2.5 s). A yaw torque drives the rotation;
-       a force keeps the centre of mass on its circle round the front axle, so the car stays in its place */
+    /* ---- donut: turn about the front axle, building up over ~2 s to ~70–75°/s (one turn in ~5 s). A yaw
+       torque drives the rotation; a force keeps the centre of mass on its circle round the front axle, so the car
+       stays in its place */
     if (donut > 0 && grounded >= 2) {
       const dir = -Math.sign(input.steer);
       const yawNow = dot(av, U);
-      const want = dir * (2.3 + 0.7 * demand) * donut;
-      const tq = clamp((want - yawNow) * D.I.yaw / 0.25, -P.mass * G * wheelbase * 0.6, P.mass * G * wheelbase * 0.6);
+      const want = dir * (1.2 + 0.4 * demand) * donutSpin;
+      const tq = clamp((want - yawNow) * D.I.yaw / 0.2, -P.mass * G * wheelbase * 0.7, P.mass * G * wheelbase * 0.7);
       rigidBody.addTorque(world, body, scale(tmp, U, tq), true);
       /* where the centre of mass should be going: round the front axle (behind it by dz), not forward */
       const dz = rearZ + wheelbase - com[2];
@@ -487,6 +491,7 @@ export function createVehicle(physics, shape, o = {}) {
     rigidBody.setAngularVelocity(world, body, [0, 0, 0]);
     Object.assign(state, { steer: 0, throttle: 0, brake: 0, reversing: false, gear: 1, shift: 0, rpm: D.idle });
     for (const w of wheels) { w.s = D.bump; w.sPrev = D.bump; w.sDraw = D.bump; w.omega = 0; w.alpha = 0; w.skid = 0; w.slide = 0; w.spinSlip = 0; w.lock = 0; }
+    state.donut = 0; state.donutSpin = 0;
   }
 
   /** change numbers live (see TUNING); returns the params in use */
