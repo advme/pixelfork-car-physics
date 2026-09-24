@@ -8,26 +8,61 @@
      engine.update(car.engine);          // { rpm, redline, throttle, limiter, shifting } from CAR.create()
 
    A pack (tools/engine-render + tools/engine-sound-pack.mjs) is a set of seamless loops recorded from Engine
-   Simulator at fixed rpm, at full throttle ("on") and with the throttle shut ("off"). Playing it, like racing games
-   do: for each layer, the two loops nearest the engine speed play, each pitched to the exact rpm (playbackRate =
+   Simulator at fixed rpm, at full throttle ("on") and with the throttle shut ("off"), all in one mp3. Playing it,
+   like racing games do: for each layer, the two loops nearest the engine speed play, each pitched to the exact rpm (playbackRate =
    rpm / recorded rpm) and crossfaded with equal power; the throttle crossfades the layers. The car's rev range is
    mapped onto the recorded engine's (idle → idle, redline → redline). Only the 4 loops in use run at a time. */
 
+/* decoded packs, shared: every car with the same engine in one audio context uses the same audio buffers */
+const decoded = new WeakMap();
+
 /**
- * Fetch and decode a pack. fetchFn defaults to globalThis.fetch.
+ * Fetch and decode a pack once per audio context: { meta, buffers } (buffers in meta.samples order).
+ * A pack is <name>.json + one <name>.mp3 with every loop (meta.file, samples[].start), or the older layout of one
+ * file per loop in a <name>/ folder. fetchFn defaults to globalThis.fetch.
  * @param {BaseAudioContext} ctx
- * @param {string} url the pack's .json (its loops are in a folder of the same name next to it)
+ * @param {string} url the pack's .json
  */
-export async function loadEngineSound(ctx, url, fetchFn = globalThis.fetch) {
-  const meta = await (await fetchFn(url)).json();
-  const base = url.replace(/[^/]*$/, '') + meta.name + '/';
-  const buffers = await Promise.all(meta.samples.map(async (s) => ctx.decodeAudioData(await (await fetchFn(base + s.file)).arrayBuffer())));
-  return createEngineSound(ctx, meta, buffers);
+export function loadEngineData(ctx, url, fetchFn = globalThis.fetch) {
+  /* one key per file, however the address was written */
+  try { url = new URL(url, globalThis.location?.href).href; } catch { /* keep it as given */ }
+  let byUrl = decoded.get(ctx);
+  if (!byUrl) { byUrl = new Map(); decoded.set(ctx, byUrl); }
+  let p = byUrl.get(url);
+  if (!p) {
+    p = (async () => {
+      const r = await fetchFn(url);
+      if (!r.ok) throw new Error(`engine pack ${url}: ${r.status}`);
+      const meta = await r.json();
+      const dir = url.replace(/[^/]*$/, '');
+      const get = async (u) => { const x = await fetchFn(u); if (!x.ok) throw new Error(`engine pack ${u}: ${x.status}`); return ctx.decodeAudioData(await x.arrayBuffer()); };
+      if (meta.file) {
+        const all = await get(dir + meta.file);
+        return { meta, buffers: meta.samples.map(() => all) };
+      }
+      return { meta, buffers: await Promise.all(meta.samples.map((s) => get(dir + meta.name + '/' + s.file))) };
+    })();
+    byUrl.set(url, p);
+    p.catch(() => byUrl.delete(url));
+  }
+  return p;
+}
+
+/**
+ * Fetch and decode a pack (once per context) and make a player for it.
+ * @param {BaseAudioContext} ctx
+ * @param {string} url the pack's .json
+ * @param {typeof fetch} [fetchFn]
+ * @param {{ volume?: number, offBoost?: number }} [o]
+ */
+export async function loadEngineSound(ctx, url, fetchFn = globalThis.fetch, o) {
+  const { meta, buffers } = await loadEngineData(ctx, url, fetchFn);
+  return createEngineSound(ctx, meta, buffers, o);
 }
 
 /**
  * @param {BaseAudioContext} ctx
- * @param {{ samples: { rpm: number, layer: string, loop: number }[], redline: number, idle: number, pad: number }} meta
+ * @param {{ samples: { rpm: number, layer: string, loop: number, start?: number }[], redline: number, idle: number, pad: number }} meta
  * @param {AudioBuffer[]} buffers decoded loops, in meta.samples order
  * @param {{ volume?: number, offBoost?: number }} [o] volume (default 1) · offBoost: how loud the throttle-shut layer
  *   plays relative to the recording (default 2.5; closed-throttle engines are ~20 dB quieter than at full throttle)
@@ -44,7 +79,7 @@ export function createEngineSound(ctx, meta, buffers, o = {}) {
 
   const layers = {};
   meta.samples.forEach((s, i) => {
-    (layers[s.layer] ||= []).push({ rpm: s.rpm, loop: s.loop, buffer: buffers[i], key: `${s.layer}:${s.rpm}` });
+    (layers[s.layer] ||= []).push({ rpm: s.rpm, loop: s.loop, start: (s.start || 0) + meta.pad, buffer: buffers[i], key: `${s.layer}:${s.rpm}` });
   });
   for (const k in layers) layers[k].sort((a, b) => a.rpm - b.rpm);
   const voices = new Map();
@@ -56,12 +91,12 @@ export function createEngineSound(ctx, meta, buffers, o = {}) {
     const src = ctx.createBufferSource();
     src.buffer = sample.buffer;
     src.loop = true;
-    src.loopStart = meta.pad;
-    src.loopEnd = meta.pad + sample.loop;
+    src.loopStart = sample.start;
+    src.loopEnd = sample.start + sample.loop;
     const gain = ctx.createGain();
     gain.gain.value = 0;
     src.connect(gain).connect(bus);
-    src.start(0, meta.pad + Math.random() * sample.loop);
+    src.start(0, sample.start + Math.random() * sample.loop);
     v = { src, gain, sample, used: 0 };
     voices.set(sample.key, v);
     return v;

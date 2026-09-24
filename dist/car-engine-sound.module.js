@@ -1,11 +1,43 @@
 /* Pixelfork Car Physics v0.9.0 · needs three@0.186.0 and crashcat@0.0.5 from the import map · © 2026 Pixelfork, see LICENSE */
 
 // src/engine-sound.js
-async function loadEngineSound(ctx, url, fetchFn = globalThis.fetch) {
-  const meta = await (await fetchFn(url)).json();
-  const base = url.replace(/[^/]*$/, "") + meta.name + "/";
-  const buffers = await Promise.all(meta.samples.map(async (s) => ctx.decodeAudioData(await (await fetchFn(base + s.file)).arrayBuffer())));
-  return createEngineSound(ctx, meta, buffers);
+var decoded = /* @__PURE__ */ new WeakMap();
+function loadEngineData(ctx, url, fetchFn = globalThis.fetch) {
+  try {
+    url = new URL(url, globalThis.location?.href).href;
+  } catch {
+  }
+  let byUrl = decoded.get(ctx);
+  if (!byUrl) {
+    byUrl = /* @__PURE__ */ new Map();
+    decoded.set(ctx, byUrl);
+  }
+  let p = byUrl.get(url);
+  if (!p) {
+    p = (async () => {
+      const r = await fetchFn(url);
+      if (!r.ok) throw new Error(`engine pack ${url}: ${r.status}`);
+      const meta = await r.json();
+      const dir = url.replace(/[^/]*$/, "");
+      const get = async (u) => {
+        const x = await fetchFn(u);
+        if (!x.ok) throw new Error(`engine pack ${u}: ${x.status}`);
+        return ctx.decodeAudioData(await x.arrayBuffer());
+      };
+      if (meta.file) {
+        const all = await get(dir + meta.file);
+        return { meta, buffers: meta.samples.map(() => all) };
+      }
+      return { meta, buffers: await Promise.all(meta.samples.map((s) => get(dir + meta.name + "/" + s.file))) };
+    })();
+    byUrl.set(url, p);
+    p.catch(() => byUrl.delete(url));
+  }
+  return p;
+}
+async function loadEngineSound(ctx, url, fetchFn = globalThis.fetch, o) {
+  const { meta, buffers } = await loadEngineData(ctx, url, fetchFn);
+  return createEngineSound(ctx, meta, buffers, o);
 }
 function createEngineSound(ctx, meta, buffers, o = {}) {
   const opt = { volume: 1, offBoost: 2.5, ...o };
@@ -21,7 +53,7 @@ function createEngineSound(ctx, meta, buffers, o = {}) {
   bus.connect(comp).connect(output);
   const layers = {};
   meta.samples.forEach((s, i) => {
-    (layers[s.layer] ||= []).push({ rpm: s.rpm, loop: s.loop, buffer: buffers[i], key: `${s.layer}:${s.rpm}` });
+    (layers[s.layer] ||= []).push({ rpm: s.rpm, loop: s.loop, start: (s.start || 0) + meta.pad, buffer: buffers[i], key: `${s.layer}:${s.rpm}` });
   });
   for (const k in layers) layers[k].sort((a, b) => a.rpm - b.rpm);
   const voices = /* @__PURE__ */ new Map();
@@ -32,12 +64,12 @@ function createEngineSound(ctx, meta, buffers, o = {}) {
     const src = ctx.createBufferSource();
     src.buffer = sample.buffer;
     src.loop = true;
-    src.loopStart = meta.pad;
-    src.loopEnd = meta.pad + sample.loop;
+    src.loopStart = sample.start;
+    src.loopEnd = sample.start + sample.loop;
     const gain = ctx.createGain();
     gain.gain.value = 0;
     src.connect(gain).connect(bus);
-    src.start(0, meta.pad + Math.random() * sample.loop);
+    src.start(0, sample.start + Math.random() * sample.loop);
     v = { src, gain, sample, used: 0 };
     voices.set(sample.key, v);
     return v;
@@ -99,5 +131,6 @@ function createEngineSound(ctx, meta, buffers, o = {}) {
 }
 export {
   createEngineSound,
+  loadEngineData,
   loadEngineSound
 };

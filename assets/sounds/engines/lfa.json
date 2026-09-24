@@ -5,7 +5,9 @@
  "cylinders": 10,
  "redline": 9000,
  "idle": 900,
+ "file": "lfa.mp3",
  "pad": 0.1,
+ "seconds": 42.37,
  "layers": {
   "on": "full throttle",
   "off": "throttle shut (overrun)"
@@ -15,210 +17,210 @@
   {
    "rpm": 900,
    "layer": "on",
-   "file": "900_on.mp3",
+   "start": 0,
    "loop": 1.2,
    "rms": 0.0444
   },
   {
    "rpm": 900,
    "layer": "off",
-   "file": "900_off.mp3",
+   "start": 1.4,
    "loop": 1.2,
    "rms": 0.0015
   },
   {
    "rpm": 1050,
    "layer": "on",
-   "file": "1050_on.mp3",
+   "start": 2.8,
    "loop": 1.257143,
    "rms": 0.0528
   },
   {
    "rpm": 1050,
    "layer": "off",
-   "file": "1050_off.mp3",
+   "start": 4.257143,
    "loop": 1.257143,
    "rms": 0.0018
   },
   {
    "rpm": 1250,
    "layer": "on",
-   "file": "1250_on.mp3",
+   "start": 5.714286,
    "loop": 1.248005,
    "rms": 0.0544
   },
   {
    "rpm": 1250,
    "layer": "off",
-   "file": "1250_off.mp3",
+   "start": 7.16229,
    "loop": 1.248005,
    "rms": 0.002
   },
   {
    "rpm": 1500,
    "layer": "on",
-   "file": "1500_on.mp3",
+   "start": 8.610295,
    "loop": 1.2,
    "rms": 0.2287
   },
   {
    "rpm": 1500,
    "layer": "off",
-   "file": "1500_off.mp3",
+   "start": 10.010295,
    "loop": 1.2,
    "rms": 0.0072
   },
   {
    "rpm": 1750,
    "layer": "on",
-   "file": "1750_on.mp3",
+   "start": 11.410295,
    "loop": 1.234286,
    "rms": 0.33
   },
   {
    "rpm": 1750,
    "layer": "off",
-   "file": "1750_off.mp3",
+   "start": 12.84458,
    "loop": 1.234286,
    "rms": 0.01
   },
   {
    "rpm": 2050,
    "layer": "on",
-   "file": "2050_on.mp3",
+   "start": 14.278866,
    "loop": 1.170726,
    "rms": 0.3862
   },
   {
    "rpm": 2050,
    "layer": "off",
-   "file": "2050_off.mp3",
+   "start": 15.649592,
    "loop": 1.170726,
    "rms": 0.0114
   },
   {
    "rpm": 2400,
    "layer": "on",
-   "file": "2400_on.mp3",
+   "start": 17.020317,
    "loop": 1.2,
    "rms": 0.1908
   },
   {
    "rpm": 2400,
    "layer": "off",
-   "file": "2400_off.mp3",
+   "start": 18.420317,
    "loop": 1.2,
    "rms": 0.0054
   },
   {
    "rpm": 2850,
    "layer": "on",
-   "file": "2850_on.mp3",
+   "start": 19.820317,
    "loop": 1.221043,
    "rms": 0.1036
   },
   {
    "rpm": 2850,
    "layer": "off",
-   "file": "2850_off.mp3",
+   "start": 21.241361,
    "loop": 1.221043,
    "rms": 0.0025
   },
   {
    "rpm": 3350,
    "layer": "on",
-   "file": "3350_on.mp3",
+   "start": 22.662404,
    "loop": 1.217914,
    "rms": 0.1115
   },
   {
    "rpm": 3350,
    "layer": "off",
-   "file": "3350_off.mp3",
+   "start": 24.080317,
    "loop": 1.217914,
    "rms": 0.0034
   },
   {
    "rpm": 3950,
    "layer": "on",
-   "file": "3950_on.mp3",
+   "start": 25.498231,
    "loop": 1.215193,
    "rms": 0.1691
   },
   {
    "rpm": 3950,
    "layer": "off",
-   "file": "3950_off.mp3",
+   "start": 26.913424,
    "loop": 1.215193,
    "rms": 0.0056
   },
   {
    "rpm": 4650,
    "layer": "on",
-   "file": "4650_on.mp3",
+   "start": 28.328617,
    "loop": 1.212902,
    "rms": 0.2504
   },
   {
    "rpm": 4650,
    "layer": "off",
-   "file": "4650_off.mp3",
+   "start": 29.741519,
    "loop": 1.212902,
    "rms": 0.0096
   },
   {
    "rpm": 5500,
    "layer": "on",
-   "file": "5500_on.mp3",
+   "start": 31.154422,
    "loop": 1.2,
    "rms": 0.3461
   },
   {
    "rpm": 5500,
    "layer": "off",
-   "file": "5500_off.mp3",
+   "start": 32.554422,
    "loop": 1.2,
    "rms": 0.0186
   },
   {
    "rpm": 6500,
    "layer": "on",
-   "file": "6500_on.mp3",
+   "start": 33.954422,
    "loop": 1.2,
    "rms": 0.3404
   },
   {
    "rpm": 6500,
    "layer": "off",
-   "file": "6500_off.mp3",
+   "start": 35.354422,
    "loop": 1.2,
    "rms": 0.0198
   },
   {
    "rpm": 7650,
    "layer": "on",
-   "file": "7650_on.mp3",
+   "start": 36.754422,
    "loop": 1.207846,
    "rms": 0.3059
   },
   {
    "rpm": 7650,
    "layer": "off",
-   "file": "7650_off.mp3",
+   "start": 38.162268,
    "loop": 1.207846,
    "rms": 0.0195
   },
   {
    "rpm": 9000,
    "layer": "on",
-   "file": "9000_on.mp3",
+   "start": 39.570113,
    "loop": 1.2,
    "rms": 0.302
   },
   {
    "rpm": 9000,
    "layer": "off",
-   "file": "9000_off.mp3",
+   "start": 40.970113,
    "loop": 1.2,
    "rms": 0.0143
   }

@@ -212,16 +212,20 @@ declare module "car" {
 declare module "car/sound" {
   import type { Object3D } from "three";
   import type { Car } from "car";
-  /** engine character: a buzzy four, a smooth six, a burbling V8, a screaming V12 */
-  export type EngineName = "inline4" | "inline6" | "v8" | "v12";
+  /** a recorded engine (real sound, ~0.45 MB each, downloaded once when first used) */
+  export type RecordedEngineName = "f136" | "m52" | "vtec" | "c454" | "2jz" | "ls" | "lfa" | "ej25" | "i5" | "v6" | "f1v12" | "busa" | "harley";
+  /** a synthesised engine (no download; also the stand-in when a recording can't load) */
+  export type SynthEngineName = "synth-inline4" | "synth-inline6" | "synth-v8" | "synth-v12";
+  export type EngineName = RecordedEngineName | SynthEngineName;
   export interface CarSoundOptions {
     /** default: picked from the car's power, redline and mass */ engine?: EngineName;
+    /** the folder with the recordings (default: assets/sounds/engines/ next to the library's folder) */ sounds?: string;
     /** 0..2 (1) */ volume?: number;
     /** where the player hears from, usually the camera: further cars are quieter and panned */ listener?: Object3D;
-    /** exhaust pops & bangs 0..1 (0.5) */ pops?: number;
+    /** exhaust pops & bangs 0..1 (0.6) */ pops?: number;
     /** turbo whine + whoosh 0..1 (0 = no turbo) */ turbo?: number;
     /** blow-off valve 0..1 (0.5 with a turbo) */ blowoff?: number;
-    /** tyre squeal 0..1 (1) */ tyres?: number;
+    /** tyre screech 0..1 (1) */ tyres?: number;
     /** crash sounds 0..1 (1) */ crashes?: number;
     /** an audio context to use (default: one shared by every car sound) */ context?: BaseAudioContext;
   }
@@ -230,7 +234,9 @@ declare module "car/sound" {
     update(): void;
     /** start now, from a key or click handler (otherwise it starts on the first key or tap by itself) */
     start(): void;
-    /** change live: engine, volume, pops, turbo, blowoff, tyres, crashes */
+    /** true once the recorded engine plays; false if it could not load (the synthesised one plays) */
+    ready: Promise<boolean>;
+    /** change live: volume, pops, turbo, blowoff, tyres, crashes (the engine with setEngine) */
     options: { engine: EngineName; volume: number; pops: number; turbo: number; blowoff: number; tyres: number; crashes: number };
     setEngine(name: EngineName): void;
     setListener(listener: Object3D | null): void;
@@ -245,8 +251,10 @@ declare module "car/sound" {
     /** stop and free it (with car.remove()) */
     dispose(): void;
   }
-  export const ENGINES: Record<EngineName, { cylinders: number; uneven: number; resonance: number; bright: number }>;
-  /** the car's sound, synthesised (no files): engine, tyres, road, wind, bumps, crashes, optional pops and turbo */
+  /** name → title of every recorded engine */
+  export const RECORDED_ENGINES: Record<RecordedEngineName, string>;
+  export const SYNTH_ENGINES: SynthEngineName[];
+  /** the car's whole sound: a real recorded engine, pops, turbo, tyres, road, wind, bumps, crashes */
   export function createCarSound(car: Car, options?: CarSoundOptions): CarSound;
 }
 

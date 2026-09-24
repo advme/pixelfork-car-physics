@@ -1,34 +1,45 @@
-/* Built-in car sound, made live with Web Audio: no files, nothing to load. Optional module ("car/sound").
+/* The car's sound, one call ("car/sound", optional module):
 
      import { createCarSound } from 'car/sound';
-     const sound = createCarSound(car, { listener: camera });   // listener: other cars get quieter with distance
+     const sound = createCarSound(car, { engine: 'f136', listener: camera });   // listener: far cars are quieter
      // every frame, after physics.sync():
      sound.update();
 
    Browsers only allow sound after the player presses a key or taps: it starts by itself on the first one.
 
-   What you hear, all from the car's own numbers:
-   - engine: one oscillator at the camshaft frequency (rpm / 120) whose harmonics are the engine's firing orders
-     (cylinders per cam turn) plus weaker "uneven" orders between them. Few uneven orders = a smooth six, many = a
-     burbling V8. Then a soft clipper driven by the throttle, an exhaust resonance, and a low-pass that opens with
-     revs and throttle; combustion noise pulsing with the same wave. Gear changes dip, the limiter chops.
-   - tyres: a squeal (two tones + narrow noise) from car.skid, only on the ground and above walking pace
-   - road rumble with speed on the ground, wind with speed²
-   - a thump when the suspension is hit hard (car.impact: kerbs, landings)
+   - engine: a REAL engine, recorded from Engine Simulator (13 engines, assets/sounds/engines, one ~0.45 MB mp3 each,
+     played by ./engine-sound.js: the loops nearest the revs, pitched to the exact rpm, throttle on / off layers).
+     Only the engine a car uses is downloaded, once per page, shared by every car with it. Default: picked from the
+     car's preset-like numbers (power, redline, mass). The files are found next to the library
+     (`../assets/sounds/engines/` from the module file, the repo's own layout); `sounds: '<folder url>/'` elsewhere.
+     If the recording can't load, a synthesised engine plays instead (a console warning says why); you can also ask
+     for that one on purpose (engine 'synth-inline4' | 'synth-inline6' | 'synth-v8' | 'synth-v12': no download).
+   - exhaust pops & bangs, turbo (./engine-fx.js)
+   - tyre screech from car.skid, road rumble and wind with speed, a thump on hard suspension hits (car.impact)
    - a crash (noise burst + metal clank + thump) when the body is stopped or knocked sideways faster than any
-     braking could: from the change of its velocity between frames
-   - optional exhaust pops & bangs and turbo (./engine-fx.js)
+     braking could (from the change of its velocity between frames; resets / teleports don't count)
    Every car's sound goes to one shared compressor per audio context, so 8 cars don't clip. */
 import { createEngineFx } from './engine-fx.js';
+import { loadEngineData, createEngineSound } from './engine-sound.js';
 
-/* engine characters: cylinders; uneven = how strong the orders between the firing orders are (burble); tone = the
-   exhaust resonance (Hz) and how bright the note is */
-export const ENGINES = {
-  inline4: { cylinders: 4, uneven: 0.16, resonance: 260, bright: 1.1 },
-  inline6: { cylinders: 6, uneven: 0.07, resonance: 230, bright: 1 },
-  v8: { cylinders: 8, uneven: 0.42, resonance: 150, bright: 0.8 },
-  v12: { cylinders: 12, uneven: 0.05, resonance: 320, bright: 1.25 },
+/** the recorded engines (assets/sounds/engines/<name>.json + .mp3) */
+export const RECORDED_ENGINES = {
+  f136: 'Ferrari F136 V8', m52: 'BMW M52B28 straight-6', vtec: 'Honda B18C5 VTEC 4-cylinder', c454: 'Chevrolet 454 V8 (truck)',
+  '2jz': 'Toyota 2JZ straight-6', ls: 'GM LS V8', lfa: 'Lexus LFA V10', ej25: 'Subaru EJ25 boxer-4', i5: 'Audi 2.3 inline-5',
+  v6: '60° V6', f1v12: 'Ferrari 412 T2 V12 (F1)', busa: 'Suzuki Hayabusa inline-4 (bike)', harley: 'Harley-Davidson V-twin (bike)',
 };
+/* the synthesised stand-ins: cylinders; uneven = strength of the orders between the firing orders (burble);
+   the exhaust resonance (Hz) and how bright the note is */
+const SYNTH = {
+  'synth-inline4': { cylinders: 4, uneven: 0.16, resonance: 260, bright: 1.1 },
+  'synth-inline6': { cylinders: 6, uneven: 0.07, resonance: 230, bright: 1 },
+  'synth-v8': { cylinders: 8, uneven: 0.42, resonance: 150, bright: 0.8 },
+  'synth-v12': { cylinders: 12, uneven: 0.05, resonance: 320, bright: 1.25 },
+};
+export const SYNTH_ENGINES = Object.keys(SYNTH);
+
+/* where the recordings are: the repo's layout, from src/ or dist/ (a game engine's pack keeps the same layout) */
+const DEFAULT_SOUNDS = (() => { try { return new URL('../assets/sounds/engines/', import.meta.url).href; } catch { return '/assets/sounds/engines/'; } })();
 
 const masters = new WeakMap();
 let shared = null;
@@ -42,11 +53,10 @@ function audioContext() {
 function masterOf(ctx) {
   let m = masters.get(ctx);
   if (!m) {
-    const comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -18; comp.knee.value = 10; comp.ratio.value = 4; comp.attack.value = 0.005; comp.release.value = 0.25;
+    m = ctx.createDynamicsCompressor();
+    m.threshold.value = -18; m.knee.value = 10; m.ratio.value = 4; m.attack.value = 0.005; m.release.value = 0.25;
     const gain = ctx.createGain(); gain.gain.value = 0.9;
-    comp.connect(gain).connect(ctx.destination);
-    m = comp;
+    m.connect(gain).connect(ctx.destination);
     masters.set(ctx, m);
   }
   return m;
@@ -57,30 +67,41 @@ function resumeOnGesture(ctx) {
   const go = () => { ctx.resume(); for (const t of ['pointerdown', 'keydown', 'touchstart']) removeEventListener(t, go, true); };
   for (const t of ['pointerdown', 'keydown', 'touchstart']) addEventListener(t, go, true);
 }
+const warned = new Set();
+const warnOnce = (m) => { if (!warned.has(m)) { warned.add(m); console.warn(`[car/sound] ${m}`); } };
 
-/** which engine a car sounds like when none is given: from its power and redline */
+/** which recorded engine a car sounds like when none is given */
 function guessEngine(p) {
-  if (p.power >= 400 && p.redline >= 8500) return 'v12';
-  if (p.power >= 300 || p.mass >= 1900) return 'v8';
-  if (p.power < 160 || p.redline >= 7600) return 'inline4';
-  return 'inline6';
+  if (p.mass >= 1900) return 'c454';
+  if (p.power >= 300 && p.redline >= 7500) return 'f136';
+  if (p.power >= 300) return 'ls';
+  if (p.power < 160 || p.redline >= 7600) return 'vtec';
+  return 'm52';
 }
+/** which synthesised engine stands in for a recorded one */
+const synthFor = (name) => (name === 'f1v12' || name === 'lfa' ? 'synth-v12' : ['f136', 'c454', 'ls', 'harley'].includes(name) ? 'synth-v8'
+  : ['vtec', 'ej25', 'busa'].includes(name) ? 'synth-inline4' : 'synth-inline6');
 
 /**
  * @param {any} car from CAR.create()
- * @param {{ context?: BaseAudioContext, engine?: keyof ENGINES, volume?: number, listener?: import('three').Object3D,
+ * @param {{ context?: BaseAudioContext, engine?: string, sounds?: string, volume?: number, listener?: import('three').Object3D,
  *   pops?: number, turbo?: number, blowoff?: number, tyres?: number, crashes?: number }} [o]
  */
 export function createCarSound(car, o = {}) {
+  const known = (name) => !!name && (name in RECORDED_ENGINES || name in SYNTH);
+  if (o.engine && !known(o.engine)) warnOnce(`unknown engine "${o.engine}"; engines: ${[...Object.keys(RECORDED_ENGINES), ...SYNTH_ENGINES].join(', ')}`);
   const opt = {
-    engine: o.engine && ENGINES[o.engine] ? o.engine : guessEngine(car.params),
-    volume: o.volume ?? 1, pops: o.pops ?? 0.5, turbo: o.turbo ?? 0, blowoff: o.blowoff ?? (o.turbo ? 0.5 : 0),
+    engine: known(o.engine) ? o.engine : guessEngine(car.params),
+    volume: o.volume ?? 1, pops: o.pops ?? 0.6, turbo: o.turbo ?? 0, blowoff: o.blowoff ?? (o.turbo ? 0.5 : 0),
     tyres: o.tyres ?? 1, crashes: o.crashes ?? 1,
   };
+  const sounds = (o.sounds || DEFAULT_SOUNDS).replace(/\/?$/, '/');
   let listener = o.listener || null;
-  let ctx = null, n = null, muted = false, disposed = false;
-  const st = { lastImpact: 0, v: null, p: [0, 0, 0], t: 0, crashAt: -1, thumpAt: -1, vib: 0 };
+  let ctx = null, n = null, eng = null, muted = false, disposed = false;
+  const st = { lastImpact: 0, v: null, p: [0, 0, 0], t: 0, crashAt: -1, thumpAt: -1 };
   const stats = { crashes: 0, thumps: 0 };
+  let markReady;
+  const ready = new Promise((r) => { markReady = r; });
 
   function build() {
     ctx = o.context || audioContext();
@@ -89,68 +110,90 @@ export function createCarSound(car, o = {}) {
     const out = ctx.createGain(); out.gain.value = 0;
     const pan = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
     if (pan) out.connect(pan).connect(masterOf(ctx)); else out.connect(masterOf(ctx));
+    const engineBus = ctx.createGain();
+    engineBus.connect(out);
 
-    /* ---- engine */
-    const spec = ENGINES[opt.engine];
+    /* noise for tyres, road, wind and crashes */
+    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
+    const d = buf.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const noise = ctx.createBufferSource(); noise.buffer = buf; noise.loop = true;
+    const tyreBp = ctx.createBiquadFilter(); tyreBp.type = 'bandpass'; tyreBp.frequency.value = 1150; tyreBp.Q.value = 4;
+    const tyre = ctx.createGain(); tyre.gain.value = 0;
+    noise.connect(tyreBp).connect(tyre).connect(out);
+    const roadLp = ctx.createBiquadFilter(); roadLp.type = 'lowpass'; roadLp.frequency.value = 180;
+    const road = ctx.createGain(); road.gain.value = 0;
+    noise.connect(roadLp).connect(road).connect(out);
+    const windLp = ctx.createBiquadFilter(); windLp.type = 'lowpass'; windLp.frequency.value = 420;
+    const wind = ctx.createGain(); wind.gain.value = 0;
+    noise.connect(windLp).connect(wind).connect(out);
+    noise.start();
+
+    const fx = createEngineFx(ctx, { pops: opt.pops, turbo: opt.turbo, blowoff: opt.blowoff });
+    fx.output.connect(out);
+    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, road, roadLp, wind, fx };
+    startEngine();
+    return true;
+  }
+
+  /* ---- the engine: a recording (loaded once per page) or the synthesised stand-in */
+  function startEngine() {
+    const name = opt.engine;
+    if (name in SYNTH) { eng = synthEngine(SYNTH[name]); markReady(true); return; }
+    const mine = { name, player: null, dispose() { if (this.player) this.player.dispose(); }, update(e) { if (this.player) this.player.update(e); } };
+    eng = mine;
+    loadEngineData(ctx, `${sounds}${name}.json`).then(({ meta, buffers }) => {
+      if (eng !== mine || disposed) return;
+      mine.player = createEngineSound(ctx, meta, buffers);
+      mine.player.output.connect(n.engineBus);
+      markReady(true);
+    }, (err) => {
+      if (eng !== mine || disposed) return;
+      warnOnce(`engine "${name}" could not load from ${sounds} (${err && err.message}); playing a synthesised engine instead. Pass sounds: '<folder with ${name}.json>/'.`);
+      eng = synthEngine(SYNTH[synthFor(name)]);
+      markReady(false);
+    });
+  }
+
+  /* one oscillator at the camshaft frequency (rpm / 120) whose harmonics are the firing orders plus weaker uneven
+     orders; soft clipping with the throttle, an exhaust resonance, a low-pass opening with revs and throttle */
+  function synthEngine(spec) {
     const H = 96, re = new Float32Array(H + 1), im = new Float32Array(H + 1);
     let seed = spec.cylinders * 7919;
     const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
     for (let k = 1; k <= H; k++) {
-      const firing = k % spec.cylinders === 0;
-      const a = (firing ? 1 : spec.uneven * (0.35 + rnd())) / Math.pow(k / spec.cylinders + 0.4, 1.05);
+      const a = (k % spec.cylinders === 0 ? 1 : spec.uneven * (0.35 + rnd())) / Math.pow(k / spec.cylinders + 0.4, 1.05);
       const ph = rnd() * Math.PI * 2;
       re[k] = a * Math.cos(ph); im[k] = a * Math.sin(ph);
     }
     const wave = ctx.createPeriodicWave(re, im);
     const osc = ctx.createOscillator(); osc.setPeriodicWave(wave);
     const osc2 = ctx.createOscillator(); osc2.setPeriodicWave(wave); osc2.detune.value = 7;
-    const drive = ctx.createGain(); drive.gain.value = 1;
-    const g2 = ctx.createGain(); g2.gain.value = 0.35;
+    const drive = ctx.createGain(), g2 = ctx.createGain(); g2.gain.value = 0.35;
     osc.connect(drive); osc2.connect(g2).connect(drive);
-    const shaper = ctx.createWaveShaper();
-    const curve = new Float32Array(2048);
-    for (let i = 0; i < curve.length; i++) { const x = (i / 1023.5) - 1; curve[i] = Math.tanh(1.6 * x); }
+    const shaper = ctx.createWaveShaper(), curve = new Float32Array(2048);
+    for (let i = 0; i < curve.length; i++) curve[i] = Math.tanh(1.6 * ((i / 1023.5) - 1));
     shaper.curve = curve;
     const reso = ctx.createBiquadFilter(); reso.type = 'peaking'; reso.frequency.value = spec.resonance; reso.Q.value = 1.4; reso.gain.value = 7;
     const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.Q.value = 0.9;
-    const engine = ctx.createGain(); engine.gain.value = 0;
-    drive.connect(shaper).connect(reso).connect(lp).connect(engine).connect(out);
-
-    /* noise: combustion texture (pulsed by the engine wave), tyres, road, wind, crashes */
-    const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
-    const d = buf.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-    const noise = ctx.createBufferSource(); noise.buffer = buf; noise.loop = true;
-    const combBp = ctx.createBiquadFilter(); combBp.type = 'bandpass'; combBp.Q.value = 0.8;
-    const comb = ctx.createGain(); comb.gain.value = 0;
-    const combAm = ctx.createGain(); combAm.gain.value = 0;
-    osc.connect(combAm).connect(comb.gain);
-    noise.connect(combBp).connect(comb).connect(lp);
-
-    /* tyres: two squeal tones + narrow noise */
-    const tyre = ctx.createGain(); tyre.gain.value = 0;
-    const sq1 = ctx.createOscillator(); sq1.type = 'triangle'; sq1.frequency.value = 820;
-    const sq2 = ctx.createOscillator(); sq2.type = 'triangle'; sq2.frequency.value = 1130;
-    const sqG = ctx.createGain(); sqG.gain.value = 0.18;
-    sq1.connect(sqG); sq2.connect(sqG); sqG.connect(tyre);
-    const tyreBp = ctx.createBiquadFilter(); tyreBp.type = 'bandpass'; tyreBp.frequency.value = 1300; tyreBp.Q.value = 6;
-    noise.connect(tyreBp).connect(tyre);
-    tyre.connect(out);
-
-    const roadLp = ctx.createBiquadFilter(); roadLp.type = 'lowpass'; roadLp.frequency.value = 200;
-    const road = ctx.createGain(); road.gain.value = 0;
-    noise.connect(roadLp).connect(road).connect(out);
-    const windBp = ctx.createBiquadFilter(); windBp.type = 'bandpass'; windBp.frequency.value = 500; windBp.Q.value = 0.6;
-    const wind = ctx.createGain(); wind.gain.value = 0;
-    noise.connect(windBp).connect(wind).connect(out);
-
-    const fx = createEngineFx(ctx, { pops: opt.pops, turbo: opt.turbo, blowoff: opt.blowoff, volume: 0.8 });
-    fx.output.connect(out);
-
-    const t = ctx.currentTime;
-    for (const s of [osc, osc2, noise, sq1, sq2]) s.start(t);
-    n = { out, pan, osc, osc2, drive, lp, engine, comb, combAm, combBp, tyre, tyreBp, sq1, sq2, road, roadLp, wind, windBp, fx, sources: [osc, osc2, noise, sq1, sq2], buf };
-    return true;
+    const gain = ctx.createGain(); gain.gain.value = 0;
+    drive.connect(shaper).connect(reso).connect(lp).connect(gain).connect(n.engineBus);
+    osc.start(); osc2.start();
+    return {
+      name: 'synth',
+      update(e) {
+        const t = ctx.currentTime, x = Math.max(0, Math.min(1.1, e.rpm / e.redline)), thr = e.throttle;
+        const f = Math.max(3, e.rpm / 120);
+        osc.frequency.setTargetAtTime(f, t, 0.02); osc2.frequency.setTargetAtTime(f, t, 0.02);
+        lp.frequency.setTargetAtTime((250 + 2200 * x * (0.35 + 0.65 * thr)) * spec.bright, t, 0.04);
+        drive.gain.setTargetAtTime(0.8 + 2.2 * thr * (0.4 + x), t, 0.04);
+        let g = 0.13 + 0.14 * thr + 0.07 * x;
+        if (e.shifting) g *= 0.5;
+        if (e.limiter) g *= Math.sin(t * 95) > 0 ? 1 : 0.35;
+        gain.gain.setTargetAtTime(g, t, 0.025);
+      },
+      dispose() { gain.gain.setTargetAtTime(0, ctx.currentTime, 0.02); setTimeout(() => { osc.stop(); osc2.stop(); gain.disconnect(); }, 100); },
+    };
   }
 
   /* one-off sounds: a low thump, a crash */
@@ -158,17 +201,16 @@ export function createCarSound(car, o = {}) {
     stats.thumps++;
     const t = ctx.currentTime;
     const s = ctx.createOscillator(), g = ctx.createGain();
-    s.frequency.setValueAtTime(95, t); s.frequency.exponentialRampToValueAtTime(40, t + 0.22);
-    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.6 * strength + 0.001, t + 0.008); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
-    s.connect(g).connect(n.out); s.start(t); s.stop(t + 0.3);
+    s.frequency.setValueAtTime(90, t); s.frequency.exponentialRampToValueAtTime(38, t + 0.25);
+    g.gain.setValueAtTime(0.5 * strength, t); g.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+    s.connect(g).connect(n.out); s.start(t); s.stop(t + 0.32);
   }
   function crash(strength) {
     stats.crashes++;
     const t = ctx.currentTime;
     const src = ctx.createBufferSource(); src.buffer = n.buf; src.playbackRate.value = 0.7 + Math.random() * 0.3;
     const bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 900 + 900 * strength; bp.Q.value = 0.7;
-    const g = ctx.createGain();
-    const len = 0.18 + 0.35 * strength;
+    const g = ctx.createGain(), len = 0.18 + 0.35 * strength;
     g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.7 * strength + 0.001, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + len);
     src.connect(bp).connect(g).connect(n.out); src.start(t, Math.random()); src.stop(t + len + 0.02);
     /* metal: inharmonic partials ringing briefly */
@@ -187,21 +229,7 @@ export function createCarSound(car, o = {}) {
     if (disposed) return;
     if (!n && !build()) return;
     const t = ctx.currentTime, e = car.engine;
-    const x = Math.max(0, Math.min(1.1, e.rpm / e.redline)), thr = e.throttle;
-    /* engine: pitch, tone, loudness */
-    const fcam = Math.max(3, e.rpm / 120);
-    n.osc.frequency.setTargetAtTime(fcam, t, 0.02);
-    n.osc2.frequency.setTargetAtTime(fcam, t, 0.02);
-    const bright = ENGINES[opt.engine].bright;
-    n.lp.frequency.setTargetAtTime((250 + 2200 * x * (0.35 + 0.65 * thr)) * bright, t, 0.04);
-    n.drive.gain.setTargetAtTime(0.8 + 2.2 * thr * (0.4 + x), t, 0.04);
-    n.combBp.frequency.setTargetAtTime(fcam * ENGINES[opt.engine].cylinders * 3, t, 0.05);
-    n.comb.gain.setTargetAtTime(0.02 + 0.05 * thr, t, 0.05);
-    n.combAm.gain.setTargetAtTime(0.05 + 0.12 * thr, t, 0.05);
-    let g = 0.13 + 0.14 * thr + 0.07 * x;
-    if (e.shifting) g *= 0.5;
-    if (e.limiter) g *= Math.sin(t * 95) > 0 ? 1 : 0.35;
-    n.engine.gain.setTargetAtTime(g, t, 0.025);
+    if (eng) eng.update(e);
     const fo = n.fx.options;
     fo.pops = opt.pops; fo.turbo = opt.turbo; fo.blowoff = opt.blowoff;
     n.fx.update(e);
@@ -209,14 +237,11 @@ export function createCarSound(car, o = {}) {
     /* tyres, road, wind */
     const sp = Math.abs(car.speed) / 3.6, onGround = car.grounded / Math.max(1, car.wheels.length);
     const skid = car.skid * Math.min(1, sp / 4) * (onGround > 0 ? 1 : 0) * opt.tyres;
-    st.vib += 0.37;
-    n.tyre.gain.setTargetAtTime(Math.min(0.32, skid * 0.34), t, 0.04);
-    n.sq1.frequency.setTargetAtTime(760 + 160 * skid + 18 * Math.sin(st.vib), t, 0.03);
-    n.sq2.frequency.setTargetAtTime(1080 + 200 * skid + 25 * Math.sin(st.vib * 1.3), t, 0.03);
-    n.tyreBp.frequency.setTargetAtTime(1100 + 600 * skid, t, 0.06);
-    n.road.gain.setTargetAtTime(0.12 * Math.min(1, sp / 25) * onGround, t, 0.1);
-    n.roadLp.frequency.setTargetAtTime(160 + sp * 6, t, 0.2);
-    n.wind.gain.setTargetAtTime(Math.min(0.2, (sp / 65) ** 2 * 0.2), t, 0.2);
+    n.tyre.gain.setTargetAtTime(Math.min(0.4, skid * 0.4), t, 0.05);
+    n.tyreBp.frequency.setTargetAtTime(950 + skid * 500, t, 0.1);
+    n.road.gain.setTargetAtTime(0.08 * Math.min(1, sp / 25) * onGround, t, 0.1);
+    n.roadLp.frequency.setTargetAtTime(140 + sp * 5, t, 0.2);
+    n.wind.gain.setTargetAtTime(Math.min(0.3, (sp / 60) ** 2 * 0.3), t, 0.2);
 
     /* knocks: suspension hits, and the body stopped or shoved faster than braking can */
     if (car.impact > st.lastImpact + 0.2 && t - st.thumpAt > 0.15) { thump(Math.min(1, car.impact)); st.thumpAt = t; }
@@ -225,10 +250,8 @@ export function createCarSound(car, o = {}) {
     if (st.v) {
       const dt = Math.max(1e-3, t - st.t);
       const dv = Math.hypot(v[0] - st.v[0], v[2] - st.v[2]);
-      const a = dv / Math.max(dt, 1 / 60);
-      /* a reset / teleport also changes the velocity at once: not a crash */
       const jumped = Math.hypot(bp[0] - st.p[0], bp[2] - st.p[2]) > Math.hypot(st.v[0], st.v[2]) * Math.max(dt, 1 / 30) * 2 + 1.5;
-      if (opt.crashes > 0 && !jumped && dv > 2.5 && a > 35 && t - st.crashAt > 0.3) { crash(Math.min(1, (dv - 1.5) / 12) * opt.crashes); st.crashAt = t; }
+      if (opt.crashes > 0 && !jumped && dv > 2.5 && dv / Math.max(dt, 1 / 60) > 35 && t - st.crashAt > 0.3) { crash(Math.min(1, (dv - 1.5) / 12) * opt.crashes); st.crashAt = t; }
     }
     st.v = [v[0], v[1], v[2]]; st.p = [bp[0], bp[1], bp[2]]; st.t = t;
 
@@ -249,10 +272,17 @@ export function createCarSound(car, o = {}) {
     update,
     /** start now (from a key or click handler); otherwise it starts on the first key or tap by itself */
     start() { if (!n) build(); if (ctx && ctx.state === 'suspended') ctx.resume(); },
-    /** the options in use; change them live: engine, volume, pops, turbo, blowoff, tyres, crashes */
+    /** true once the recorded engine plays (false: it could not load and the synthesised one plays) */
+    ready,
+    /** the options in use; change them live: volume, pops, turbo, blowoff, tyres, crashes (engine: setEngine) */
     options: opt,
-    /** switch the engine character: "inline4" | "inline6" | "v8" | "v12" */
-    setEngine(name) { if (!ENGINES[name] || name === opt.engine) return; opt.engine = name; if (n) { stopAll(); n = null; } },
+    /** switch the engine: a recorded one ("f136", "m52", …) or a synthesised one ("synth-v8", …) */
+    setEngine(name) {
+      if (!known(name)) { warnOnce(`unknown engine "${name}"`); return; }
+      if (name === opt.engine) return;
+      opt.engine = name;
+      if (n) { eng.dispose(); startEngine(); }
+    },
     /** where the player hears from (the camera): cars further away are quieter and panned */
     setListener(obj) { listener = obj || null; },
     get muted() { return muted; },
@@ -266,13 +296,14 @@ export function createCarSound(car, o = {}) {
     /** 0..1 turbo boost (with turbo on) */
     get boost() { return n ? n.fx.boost : 0; },
     /** stop and free everything (call with car.remove()) */
-    dispose() { disposed = true; if (n) stopAll(); n = null; },
+    dispose() {
+      disposed = true;
+      if (!n) return;
+      const old = n;
+      if (eng) eng.dispose();
+      old.out.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
+      setTimeout(() => { old.noise.stop(); old.fx.dispose(); old.out.disconnect(); }, 120);
+      n = null;
+    },
   };
-
-  function stopAll() {
-    const t = ctx.currentTime;
-    n.out.gain.setTargetAtTime(0, t, 0.02);
-    const old = n;
-    setTimeout(() => { for (const s of old.sources) { try { s.stop(); } catch { /* already stopped */ } } old.fx.dispose(); old.out.disconnect(); }, 120);
-  }
 }

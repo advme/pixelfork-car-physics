@@ -2,11 +2,12 @@
 /* Turn engine-render recordings into a sound pack the game plays (src/engine-sound.js):
      node tools/engine-sound-pack.mjs <render dir> <out dir> [name …]
    For each engine: every recording becomes a seamless loop of a whole number of engine cycles (4-stroke: one
-   cycle = 2 turns = 120 / rpm s), about 1.2 s long, crossfaded at the seam and written TWICE in a row: an MP3
-   encoder shifts audio by a few ms, but any window of loop length inside a repeated loop is seamless, so the
-   player can loop [0.1 s, 0.1 s + loop] of the decoded audio whatever the shift. One gain per engine (loudest
-   peak → 0.9) keeps the real loud / quiet differences between recordings. Needs ffmpeg (libmp3lame). */
-import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync } from 'node:fs';
+   cycle = 2 turns = 120 / rpm s), about 1.2 s long, crossfaded at the seam. All loops of an engine go into ONE mp3
+   (<name>.mp3, one download) next to <name>.json, which says where each loop starts. Each loop sits in a segment of
+   PAD + loop + PAD whose pads continue the loop (the audio is periodic across the whole segment), so the player can
+   loop [start + PAD, start + PAD + loop] even if the mp3 decoder shifts everything by a few ms. One gain per engine
+   (loudest peak → 0.9) keeps the real loud / quiet differences between recordings. Needs ffmpeg (libmp3lame). */
+import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, rmSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -46,12 +47,15 @@ const metas = readdirSync(renderDir).filter((f) => f.endsWith('.json')).map((f) 
   .filter((m) => !only.length || only.includes(m.name));
 mkdirSync(outDir, { recursive: true });
 for (const m of metas) {
-  const dir = join(outDir, m.name);
-  mkdirSync(dir, { recursive: true });
+  for (const old of [join(outDir, m.name)]) if (existsSync(old)) rmSync(old, { recursive: true });
   const takes = m.samples.map((s) => ({ ...s, ...readWav(join(renderDir, s.file)) }));
+  const rate = takes[0].rate;
+  if (takes.some((t) => t.rate !== rate)) throw new Error(`${m.name}: recordings at different sample rates`);
   const peak = Math.max(...takes.map((t) => t.pcm.reduce((a, v) => Math.max(a, Math.abs(v)), 0)));
   const gain = 0.9 / peak;
-  const out = [];
+  const P = Math.round(PAD * rate);
+  const out = [], parts = [];
+  let at = 0;
   for (const t of takes) {
     const cycle = 120 / t.rpm;
     const cycles = Math.max(1, Math.round(LOOP / cycle));
@@ -65,26 +69,30 @@ for (const m of metas) {
       const w = i / X;
       loop[i] = (t.pcm[a + i] * w + t.pcm[a + L + i] * (1 - w)) * gain;
     }
-    const P = Math.round(PAD * t.rate);
-    const file = new Float32Array(P + 2 * L + P);
-    for (let i = 0; i < file.length; i++) file[i] = loop[((i - P) % L + L) % L];
-    const wav = join(dir, `${t.rpm}_${t.layer}.wav`), mp3 = join(dir, `${t.rpm}_${t.layer}.mp3`);
-    writeWav(wav, file, t.rate);
-    execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wav, '-codec:a', 'libmp3lame', '-b:a', '96k', '-ac', '1', mp3]);
-    execFileSync('rm', [wav]);
+    const seg = new Float32Array(P + L + P);
+    for (let i = 0; i < seg.length; i++) seg[i] = loop[((i - P) % L + L) % L];
+    parts.push(seg);
     let rms = 0;
     for (const v of loop) rms += v * v;
-    out.push({ rpm: t.rpm, layer: t.layer, file: `${t.rpm}_${t.layer}.mp3`, loop: +(L / t.rate).toFixed(6), rms: +Math.sqrt(rms / L).toFixed(4) });
+    out.push({ rpm: t.rpm, layer: t.layer, start: +(at / rate).toFixed(6), loop: +(L / rate).toFixed(6), rms: +Math.sqrt(rms / L).toFixed(4) });
+    at += seg.length;
   }
+  const all = new Float32Array(at);
+  let o = 0;
+  for (const seg of parts) { all.set(seg, o); o += seg.length; }
+  const wav = join(outDir, `${m.name}.wav`), mp3 = join(outDir, `${m.name}.mp3`);
+  writeWav(wav, all, rate);
+  execFileSync('ffmpeg', ['-y', '-loglevel', 'error', '-i', wav, '-codec:a', 'libmp3lame', '-b:a', '96k', '-ac', '1', mp3]);
+  rmSync(wav);
   const pack = {
     name: m.name, title: TITLES[m.name] || m.engine, engine: m.engine, cylinders: m.cylinders, redline: m.redline,
-    idle: Math.min(...out.map((s) => s.rpm)), pad: PAD, layers: { on: 'full throttle', off: 'throttle shut (overrun)' },
+    idle: Math.min(...out.map((s) => s.rpm)), file: `${m.name}.mp3`, pad: PAD, seconds: +(at / rate).toFixed(2),
+    layers: { on: 'full throttle', off: 'throttle shut (overrun)' },
     source: `Engine Simulator (AngeTheGreat, MIT) script ${m.script}, held at each rpm on its dynamometer`,
     samples: out,
   };
   writeFileSync(join(outDir, `${m.name}.json`), JSON.stringify(pack, null, 1) + '\n');
-  const kb = readdirSync(dir).reduce((t, f) => t + readFileSync(join(dir, f)).length, 0) / 1024;
-  console.log(`${m.name}: ${out.length} loops, ${kb.toFixed(0)} KB, gain ${gain.toFixed(2)}`);
+  console.log(`${m.name}: ${out.length} loops, ${(statSync(mp3).size / 1024).toFixed(0)} KB, ${pack.seconds} s, gain ${gain.toFixed(2)}`);
 }
 /* index.json: every pack in the folder, for pickers */
 const all = readdirSync(outDir).filter((f) => f.endsWith('.json') && f !== 'index.json')

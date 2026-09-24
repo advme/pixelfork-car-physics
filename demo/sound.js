@@ -3,7 +3,7 @@
      until its pack has loaded, a simple synthesised engine stands in
    - exhaust pops & bangs and turbo (whine, whoosh, blow-off / flutter): src/engine-fx.js
    - tyre screech from the car's skid value, wind with speed, a thump on hard landings (synthesised)
-   - or, for an engine named "synth:v8" etc., the library's built-in sound (car/sound) does everything instead
+   - or, for a synthesised engine ("synth-v8" etc.), the library's car/sound does everything instead
    Browsers only start audio after a key or click: call start() from one. */
 import { loadEngineSound } from 'car/engine-sound';
 import { createEngineFx } from 'car/engine-fx';
@@ -14,7 +14,7 @@ export const ENGINE_FOR_PRESET = { sport: 'f136', car: 'm52', classic: 'vtec', o
 
 export function createCarSound(packBase = '/assets/sounds/engines/') {
   let ctx = null, n = null, muted = false, lastImpact = 0;
-  let wantEngine = 'm52', engine = null, loading = null, fx = null;
+  let wantEngine = null, engine = null, loading = null, fx = null;
   const fxOptions = { pops: 1, turbo: 0.6, blowoff: 0.6, valve: 'blowoff' };
   let engineVolume = 1, engineBus = null;
   const packs = new Map();
@@ -23,7 +23,7 @@ export function createCarSound(packBase = '/assets/sounds/engines/') {
 
   /* load (once) and switch to a recorded engine */
   async function useEngine(name) {
-    synthName = name.startsWith('synth:') ? name.slice(6) : null;
+    synthName = name.startsWith('synth-') ? name : null;
     if (!synthName && synth) { synth.s.dispose(); synth = null; }
     if (synthName) { wantEngine = name; if (engine) { engine.stop(); engine.output.disconnect(); engine = null; } loading = null; return; }
     wantEngine = name;
@@ -82,7 +82,7 @@ export function createCarSound(packBase = '/assets/sounds/engines/') {
     engineBus.connect(master);
     fx = createEngineFx(ctx, fxOptions);
     fx.output.connect(master);
-    if (!wantEngine.startsWith('synth:')) useEngine(wantEngine);
+    if (wantEngine && !wantEngine.startsWith('synth-')) useEngine(wantEngine);
   }
 
   function thump(strength) {
@@ -138,7 +138,9 @@ export function createCarSound(packBase = '/assets/sounds/engines/') {
     start, update,
     /** switch the recorded engine: 'f136' | 'm52' | 'vtec' | 'c454' (see ENGINE_FOR_PRESET) */
     useEngine,
-    get engine() { return synthName ? `built-in ${synthName}` : engine && !loading ? engine.meta.title : null; },
+    get engine() { return synthName ? `synthesised ${synthName.slice(6)}` : engine && !loading ? engine.meta.title : null; },
+    /** the audio context (after start()) */
+    get context() { return ctx; },
     get muted() { return muted; },
     /** pops & turbo: { pops: 0..1, turbo: 0..1, valve: 'blowoff' | 'flutter' } (live) */
     setFx(o2) { Object.assign(fxOptions, o2); if (fx) Object.assign(fx.options, o2); },

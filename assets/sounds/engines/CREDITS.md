@@ -4,7 +4,7 @@ Recorded with **Engine Simulator** by AngeTheGreat (Ange Yaghi), via the communi
 [Open Engine Simulator](https://github.com/josemaarcos90-lgtm/open-engine-sim) (original:
 [ange-yaghi/engine-sim](https://github.com/ange-yaghi/engine-sim)). Each engine script was run in the simulator,
 held at fixed rpm on its dynamometer at full and closed throttle, and recorded with `tools/engine-render`, then
-looped with `tools/engine-sound-pack.mjs`.
+looped with `tools/engine-sound-pack.mjs` (all loops of an engine in one `<pack>.mp3`, their offsets in `<pack>.json`).
 
 | Pack | Engine script |
 |---|---|

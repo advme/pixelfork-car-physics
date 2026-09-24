@@ -99,20 +99,21 @@ Presets: `"car"` (default: everyday AWD, 230 kW), `"sport"` (RWD, 420 kW, 290 km
 Arcade feel: `grip: 1.8, assist: 1`. Drifty: `drive: "rwd", assist: 0.3, handbrakeGrip: 0.3`. Monster truck:
 `preset: "offroad", travel: 0.55, stiffness: 0.9`. Kart: `mass: 600, steer: 30, stiffness: 2.5`.
 
-## 7. Sound (optional module, no files)
-Map `"car/sound"` too. One call gives the car its whole sound, synthesised live: engine (pitch from the revs, tone from
-the throttle), gear changes and rev limiter, tyre squeal, road rumble, wind, bumps, crashes into walls, exhaust pops.
+## 7. Sound (optional module)
+Map `"car/sound"` too. One call gives the car its sound: a REAL recorded engine (pitch and tone follow the revs and
+throttle, gear changes, rev limiter), exhaust pops, tyre screech, road, wind, bumps, crashes into walls.
 ```js
 import { createCarSound } from "car/sound";
-const sound = createCarSound(car, { listener: camera });   // every car can have one; far cars are quieter
+const sound = createCarSound(car, { engine: "f136", listener: camera });   // one per car; far cars are quieter
 /* every frame, after physics.sync(): */ sound.update();
 ```
-It starts by itself on the player's first key or tap (browsers block sound before that). Options (all live in
-`sound.options`): `engine` `"inline4"` (buzzy four) · `"inline6"` (smooth six) · `"v8"` (burbling) · `"v12"`
-(screaming) — default picked from the car's power; `volume` 0..2 (1); `pops` 0..1 (0.5); `turbo` 0..1 (0 = none);
-`tyres`, `crashes` 0..1 (1). `sound.muted = true` mutes. `car.remove()` → also `sound.dispose()`.
-Your own sounds instead? Read `car.engine`, `car.skid` and `car.impact`. Recorded engine packs: `"car/engine-sound"`
-(`loadEngineSound(audioCtx, url)`, loads audio files).
+It starts by itself on the player's first key or tap (browsers block sound before that). Engines: `"f136"` Ferrari
+V8 · `"ls"` muscle V8 · `"c454"` truck V8 · `"m52"` BMW six · `"2jz"` Toyota six · `"vtec"` Honda four · `"ej25"`
+Subaru boxer · `"i5"` Audi five · `"v6"` · `"lfa"` Lexus V10 · `"f1v12"` F1 V12 · `"busa"` superbike · `"harley"`
+V-twin. Leave `engine` out to pick one from the car. Each engine downloads once (~0.45 MB) when first used; the
+library finds the files itself. Options (live in `sound.options`): `volume` 0..2 (1), `pops` 0..1 (0.6), `turbo` 0..1
+(0 = none), `tyres`, `crashes` 0..1 (1). `sound.setEngine("ls")`, `sound.muted = true`, `sound.dispose()` with
+`car.remove()`. Your own sounds instead? Read `car.engine`, `car.skid` and `car.impact`.
 
 ## 8. Several cars, races, AI
 - Every car is independent: make as many as you need, from one model or several (the demo races 8).

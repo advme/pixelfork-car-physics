@@ -6,14 +6,16 @@
  *      numbers, the presets) and that the version in src/index.js is package.json's
  *   2. bundles (ES modules; three and crashcat stay external = the game's import map):
  *        src/index.js        → dist/car.module.js              import name "car"
- *        src/sound.js        → dist/car-sound.module.js        import name "car/sound"        (optional: built-in sound, no files)
+ *        src/sound.js        → dist/car-sound.module.js        import name "car/sound"        (optional: the car's sound;
+ *                                                             loads the recorded engines from assets/sounds/engines/)
  *        src/engine-fx.js    → dist/car-engine-fx.module.js    import name "car/engine-fx"    (optional)
  *        src/engine-sound.js → dist/car-engine-sound.module.js import name "car/engine-sound" (optional, loads files)
- *   3. refuses code a strict game host would refuse (eval, new Function, network, workers) in all but engine-sound
+ *   3. refuses code a strict game host would refuse (eval, new Function, network, workers); the sound modules may
+ *      fetch() their own recordings
  *   4. writes dist/types.d.ts and dist/registry.json (version, needs, modules, presets, tuning ranges)
  *   5. stamps the version into AI-GUIDE.md and warns when the guide gets long (game-writing AIs read it in every prompt)
  */
-import { readFileSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync, statSync, readdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { dirname, join } from 'node:path';
 import { gzipSync } from 'node:zlib';
@@ -27,10 +29,11 @@ const THREE = pkg.peerDependencies.three, CRASHCAT = pkg.peerDependencies.crashc
 const EXTERNAL = ['three', 'three/*', 'crashcat', 'crashcat/*'];
 const GUIDE_MAX_LINES = 180;
 const MODULES = [
-  { name: 'car', src: 'src/index.js', out: 'car.module.js', strict: true },
-  { name: 'car/sound', src: 'src/sound.js', out: 'car-sound.module.js', strict: true },
-  { name: 'car/engine-fx', src: 'src/engine-fx.js', out: 'car-engine-fx.module.js', strict: true },
-  { name: 'car/engine-sound', src: 'src/engine-sound.js', out: 'car-engine-sound.module.js', strict: false },
+  { name: 'car', src: 'src/index.js', out: 'car.module.js', allow: [] },
+  /* the sound modules load the engine recordings (same-origin files next to the library): fetch() is allowed there */
+  { name: 'car/sound', src: 'src/sound.js', out: 'car-sound.module.js', allow: ['fetch()'] },
+  { name: 'car/engine-fx', src: 'src/engine-fx.js', out: 'car-engine-fx.module.js', allow: [] },
+  { name: 'car/engine-sound', src: 'src/engine-sound.js', out: 'car-engine-sound.module.js', allow: ['fetch()'] },
 ];
 
 const errors = [];
@@ -73,7 +76,7 @@ if (CAR.version !== VERSION) fail(`src/index.js VERSION is ${CAR.version} but pa
   const presets = types.match(/export type PresetName =([^;]+);/)?.[1].match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1)).sort().join(',');
   if (presets !== [...CAR.presets].sort().join(',')) fail('src/types.d.ts PresetName does not match CAR.presets');
   {
-    const { createCarSound, ENGINES } = await import(pathToFileURL(at('src/sound.js')).href);
+    const { createCarSound, RECORDED_ENGINES, SYNTH_ENGINES } = await import(pathToFileURL(at('src/sound.js')).href);
     const warn = console.warn; console.warn = () => {};
     const car = CAR.create({ physics: CAR.createPhysics({ floor: 50 }) });
     console.warn = warn;
@@ -81,8 +84,16 @@ if (CAR.version !== VERSION) fail(`src/index.js VERSION is ${CAR.version} but pa
     const listed = block('CarSound');
     for (const k of have) if (!listed.includes(k)) fail(`the car sound has "${k}" but src/types.d.ts interface CarSound does not list it`);
     for (const k of listed) if (!have.includes(k)) fail(`interface CarSound lists "${k}" but the car sound has no such thing`);
-    const names = types.match(/export type EngineName =([^;]+);/)?.[1].match(/"([^"]+)"/g)?.map((x) => x.slice(1, -1)).sort().join(',');
-    if (names !== Object.keys(ENGINES).sort().join(',')) fail('src/types.d.ts EngineName does not match ENGINES in src/sound.js');
+    const union = (t) => types.match(new RegExp(`export type ${t} =([^;]+);`))?.[1].match(/"([^"]+)"/g)?.map((x) => x.slice(1, -1)).sort().join(',');
+    if (union('RecordedEngineName') !== Object.keys(RECORDED_ENGINES).sort().join(',')) fail('src/types.d.ts RecordedEngineName does not match RECORDED_ENGINES in src/sound.js');
+    if (union('SynthEngineName') !== [...SYNTH_ENGINES].sort().join(',')) fail('src/types.d.ts SynthEngineName does not match SYNTH_ENGINES in src/sound.js');
+    /* every recorded engine is really there: a json + its mp3 */
+    for (const name of Object.keys(RECORDED_ENGINES)) {
+      try {
+        const meta = JSON.parse(readFileSync(at(`assets/sounds/engines/${name}.json`), 'utf8'));
+        if (!meta.file || !statSync(at(`assets/sounds/engines/${meta.file}`)).size) fail(`assets/sounds/engines/${name}.json: no mp3`);
+      } catch (e) { fail(`recorded engine "${name}": ${e.message}`); }
+    }
     car.remove();
   }
   const fxKeys = block('EngineFx');
@@ -109,7 +120,7 @@ const banned = [
 ];
 for (const m of MODULES) {
   const code = readFileSync(at(`dist/${m.out}`), 'utf8');
-  if (m.strict) for (const [re, what] of banned) if (re.test(code)) fail(`dist/${m.out} contains ${what}: a strict game host would refuse it`);
+  for (const [re, what] of banned) if (!m.allow.includes(what) && re.test(code)) fail(`dist/${m.out} contains ${what}: a strict game host would refuse it`);
   for (const x of code.matchAll(/^import\s[\s\S]*?from\s*["']([^"']+)["']/gm)) {
     if (!/^(three|crashcat)(\/|$)/.test(x[1])) fail(`dist/${m.out} imports "${x[1]}": only three and crashcat may come from outside`);
   }
@@ -123,8 +134,13 @@ const registry = {
   version: VERSION,
   needs: { three: THREE, crashcat: CRASHCAT },
   module: 'car.module.js',
-  importMap: Object.fromEntries(MODULES.map((m) => [m.name, m.out])),
-  optional: { 'car/sound': 'built-in car sound: engine, tyres, road, wind, bumps, crashes, pops, turbo; synthesised (no files)', 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)' },
+  importMap: Object.fromEntries(MODULES.map((m) => [m.name, `dist/${m.out}`])),
+  layout: 'keep the repo layout: dist/*.module.js and assets/sounds/engines/ side by side under one folder (the sound modules find the recordings at ../assets/sounds/engines/)',
+  engines: Object.fromEntries(readdirSync(at('assets/sounds/engines')).filter((f) => f.endsWith('.json') && f !== 'index.json').map((f) => {
+    const m = JSON.parse(readFileSync(at(`assets/sounds/engines/${f}`), 'utf8'));
+    return [m.name, { title: m.title, cylinders: m.cylinders, redline: m.redline, files: [`assets/sounds/engines/${f}`, `assets/sounds/engines/${m.file}`], bytes: statSync(at(`assets/sounds/engines/${m.file}`)).size }];
+  })),
+  optional: { 'car/sound': 'the car\'s sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo, tyres, road, wind, bumps, crashes', 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)' },
   presets: Object.fromEntries(Object.entries(lib.PRESETS)),
   tuning: Object.fromEntries(Object.entries(CAR.tuning).map(([k, [min, max, unit]]) => [k, { min, max, unit }])),
   controls: { throttle: '0..1', brake: '0..1 (held at a standstill: reverse)', steer: '-1 left .. 1 right', handbrake: 'boolean' },

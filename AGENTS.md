@@ -38,13 +38,14 @@ src/detect.js      wheel detection from shape alone (three.js only for the scene
 src/rig.js         splits the model into body / wheels, builds pivots (mount → steer → spin); never changes the model
 src/vehicle.js     raycast vehicle on crashcat, no three.js: suspension, tyres, engine, brakes, steering; PRESETS
 src/physics.js     createPhysics(): a ready crashcat world for games without one
-src/sound.js       OPTIONAL "car/sound": the car's whole sound synthesised (engine by firing orders, tyres, road, wind,
-                   thumps, crashes, pops/turbo via engine-fx), distance + pan from a listener, one compressor per context
+src/sound.js       OPTIONAL "car/sound": the car's sound — a recorded engine (./engine-sound.js, files found at
+                   ../assets/sounds/engines/ from the module, or o.sounds), pops/turbo (engine-fx), tyres, road, wind,
+                   thumps, crashes; distance + pan from a listener; a synthesised engine only as the fallback
 src/engine-fx.js   OPTIONAL: exhaust pops & bangs + turbo (whine, whoosh, blow-off / flutter), synthesised
-src/engine-sound.js OPTIONAL (not in the core: loads files): real engine sound from recorded packs
+src/engine-sound.js OPTIONAL: the recorded engine player (loads a pack once per audio context, shared by all cars)
 src/camera.js      createCamera(): GTA-style chase camera (spring follow, slide look, FOV at speed, shake, orbit)
 demo/playground.*  the 3D test scene (import map like a game's); window.playground for automated checks
-demo/sound.js      the demos' sound for your car: recorded engine packs + engine-fx, or car/sound for "synth:<engine>"
+demo/sound.js      the playground / race sound for your car: recorded engines + engine-fx (AI cars use car/sound)
 demo/effects.js    skid marks + tyre smoke from the wheels' contact / skid
 demo/race.*        the race page (menu, lights, HUD, minimap, results); demo/track.js the City Circuit (layout →
                    centreline, walls (physics), road, kerbs, scenery, racing line); demo/race-ai.js lap tracker, AI
@@ -56,7 +57,8 @@ tools/detect-report.mjs  what the detector finds per model (npm run detect)
 tools/load-glb.mjs three's GLTFLoader in Node (textures skipped)
 tools/serve.mjs    local no-cache server, port 8770; POST /__shot saves playground screenshots to _local/shots/
 assets/models/test/  the test cars (CC-BY, see CREDITS.md)
-assets/sounds/engines/  engine sound packs recorded from Engine Simulator (MIT, see CREDITS.md)
+assets/sounds/engines/  engine sound packs recorded from Engine Simulator (MIT, see CREDITS.md): <name>.json + ONE
+                   <name>.mp3 each (all loops, offsets in the json); games load them from here (keep the layout)
 tools/engine-render/   C++ recorder (links Engine Simulator's core) + README; tools/engine-sound-pack.mjs loops them
 ```
 
@@ -66,6 +68,7 @@ tools/engine-render/   C++ recorder (links Engine Simulator's core) + README; to
 - **Never change the caller's model.** New meshes share its materials and vertex buffers.
 - **The game calls no update of ours.** Cars run inside `physics.step(dt)` / `physics.sync(alpha)` (wrapped once).
 - **No bundled engines.** three and crashcat come from the import map. No WASM, eval, network, workers.
+  The sound modules may fetch() their own recordings (same-origin files next to the library), nothing else.
 - **Plain arrays at the edge** like crashcat: `[x, y, z]`, `[x, y, z, w]`.
 - **Car frame:** +Z forward, +Y up, +X left, metres, origin between the wheels at the tyres' bottom.
 - Run `npm test` after ANY change to detection, rig or vehicle; look at the result in the playground.

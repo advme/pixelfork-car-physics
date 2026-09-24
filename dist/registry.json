@@ -7,13 +7,146 @@
   },
   "module": "car.module.js",
   "importMap": {
-    "car": "car.module.js",
-    "car/sound": "car-sound.module.js",
-    "car/engine-fx": "car-engine-fx.module.js",
-    "car/engine-sound": "car-engine-sound.module.js"
+    "car": "dist/car.module.js",
+    "car/sound": "dist/car-sound.module.js",
+    "car/engine-fx": "dist/car-engine-fx.module.js",
+    "car/engine-sound": "dist/car-engine-sound.module.js"
+  },
+  "layout": "keep the repo layout: dist/*.module.js and assets/sounds/engines/ side by side under one folder (the sound modules find the recordings at ../assets/sounds/engines/)",
+  "engines": {
+    "2jz": {
+      "title": "Toyota 2JZ straight-6",
+      "cylinders": 6,
+      "redline": 6000,
+      "files": [
+        "assets/sounds/engines/2jz.json",
+        "assets/sounds/engines/2jz.mp3"
+      ],
+      "bytes": 442036
+    },
+    "busa": {
+      "title": "Suzuki Hayabusa inline-4 (bike)",
+      "cylinders": 4,
+      "redline": 11000,
+      "files": [
+        "assets/sounds/engines/busa.json",
+        "assets/sounds/engines/busa.mp3"
+      ],
+      "bytes": 505357
+    },
+    "c454": {
+      "title": "Chevrolet 454 V8 (truck)",
+      "cylinders": 8,
+      "redline": 5500,
+      "files": [
+        "assets/sounds/engines/c454.json",
+        "assets/sounds/engines/c454.mp3"
+      ],
+      "bytes": 408182
+    },
+    "ej25": {
+      "title": "Subaru EJ25 boxer-4 (unequal headers)",
+      "cylinders": 4,
+      "redline": 6500,
+      "files": [
+        "assets/sounds/engines/ej25.json",
+        "assets/sounds/engines/ej25.mp3"
+      ],
+      "bytes": 442036
+    },
+    "f136": {
+      "title": "Ferrari F136 V8",
+      "cylinders": 8,
+      "redline": 9000,
+      "files": [
+        "assets/sounds/engines/f136.json",
+        "assets/sounds/engines/f136.mp3"
+      ],
+      "bytes": 509119
+    },
+    "f1v12": {
+      "title": "Ferrari 412 T2 V12 (F1)",
+      "cylinders": 12,
+      "redline": 18000,
+      "files": [
+        "assets/sounds/engines/f1v12.json",
+        "assets/sounds/engines/f1v12.mp3"
+      ],
+      "bytes": 405360
+    },
+    "harley": {
+      "title": "Harley-Davidson Shovelhead V-twin (bike)",
+      "cylinders": 2,
+      "redline": 5000,
+      "files": [
+        "assets/sounds/engines/harley.json",
+        "assets/sounds/engines/harley.mp3"
+      ],
+      "bytes": 405360
+    },
+    "i5": {
+      "title": "Audi 2.3 inline-5",
+      "cylinders": 5,
+      "redline": 6000,
+      "files": [
+        "assets/sounds/engines/i5.json",
+        "assets/sounds/engines/i5.mp3"
+      ],
+      "bytes": 442036
+    },
+    "lfa": {
+      "title": "Lexus LFA 1LR-GUE V10",
+      "cylinders": 10,
+      "redline": 9000,
+      "files": [
+        "assets/sounds/engines/lfa.json",
+        "assets/sounds/engines/lfa.mp3"
+      ],
+      "bytes": 509119
+    },
+    "ls": {
+      "title": "GM LS V8",
+      "cylinders": 8,
+      "redline": 6500,
+      "files": [
+        "assets/sounds/engines/ls.json",
+        "assets/sounds/engines/ls.mp3"
+      ],
+      "bytes": 442036
+    },
+    "m52": {
+      "title": "BMW M52B28 straight-6",
+      "cylinders": 6,
+      "redline": 7000,
+      "files": [
+        "assets/sounds/engines/m52.json",
+        "assets/sounds/engines/m52.mp3"
+      ],
+      "bytes": 475578
+    },
+    "v6": {
+      "title": "60° V6",
+      "cylinders": 6,
+      "redline": 5500,
+      "files": [
+        "assets/sounds/engines/v6.json",
+        "assets/sounds/engines/v6.mp3"
+      ],
+      "bytes": 408182
+    },
+    "vtec": {
+      "title": "Honda B18C5 VTEC 4-cylinder",
+      "cylinders": 4,
+      "redline": 8400,
+      "files": [
+        "assets/sounds/engines/vtec.json",
+        "assets/sounds/engines/vtec.mp3"
+      ],
+      "bytes": 509119
+    }
   },
   "optional": {
-    "car/sound": "built-in car sound: engine, tyres, road, wind, bumps, crashes, pops, turbo; synthesised (no files)",
+    "car/sound": "the car's sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo, tyres, road, wind, bumps, crashes",
     "car/engine-fx": "exhaust pops & bangs + turbo, synthesised (no files)",
     "car/engine-sound": "recorded engine sound packs (loads audio files)"
   },

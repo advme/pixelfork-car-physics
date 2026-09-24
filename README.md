@@ -35,9 +35,9 @@ renderer.render(scene, camera);
 | Import name | File | |
 |---|---|---|
 | `car` | `dist/car.module.js` | the library (≈ 57 KB, 18 KB gzipped) |
-| `car/sound` | `dist/car-sound.module.js` | optional: the car's whole sound, synthesised (no files) |
+| `car/sound` | `dist/car-sound.module.js` | optional: the car's sound, with real recorded engines (`assets/sounds/engines/`) |
 | `car/engine-fx` | `dist/car-engine-fx.module.js` | optional: pops & bangs + turbo, synthesised |
-| `car/engine-sound` | `dist/car-engine-sound.module.js` | optional: recorded engine packs (loads audio files) |
+| `car/engine-sound` | `dist/car-engine-sound.module.js` | optional: just the recorded engine player |
 
 **In a game engine that already has a crashcat world** (`{ world, layers: { moving, static }, step(dt), sync(alpha) }`,
 `step` = exactly one world step): pass it as `physics`. Cars add their own substeps inside `physics.step()` (the
@@ -65,27 +65,30 @@ tyres with a slip curve and relaxation length, engine with revs, torque curve, a
 traction control and ABS that keep cornering grip first, automatic countersteer, stability control that only steps in
 when the car slides, landing assist in the air. Cars run at 120 Hz inside the game's 60 Hz `physics.step`.
 
-## Built-in sound (optional, no files)
+## Car sound (optional): real recorded engines
 
 ```js
 import { createCarSound } from 'car/sound';
-const sound = createCarSound(car, { listener: camera, engine: 'v8' });   // 'inline4' | 'inline6' | 'v8' | 'v12'
+const sound = createCarSound(car, { engine: 'f136', listener: camera });
 sound.update();   // every frame; starts by itself on the first key or tap
 ```
 
-Engine (one oscillator at the camshaft frequency whose harmonics are the engine's firing orders, plus weaker uneven
-orders for the burble; soft clipping with the throttle, exhaust resonance, a low-pass opening with revs), gear
-changes and limiter, tyre squeal, road rumble, wind, suspension thumps, crashes (from sudden velocity changes that no
-braking could make), pops and optional turbo. Cars further from the listener are quieter and panned. The race demo's
-AI cars use it; the playground's engine menu has the four built-in engines next to the recorded ones.
+The engine is **real**: recorded from **Engine Simulator** (AngeTheGreat, MIT), simulated combustion and exhaust,
+not a synth. 13 engines ship in `assets/sounds/engines/`, one mp3 (~0.45 MB, 5.7 MB for all) + one json each; a game
+downloads only the engines its cars use, once, shared by every car with that engine: Ferrari F136 V8 (`f136`) ·
+BMW M52 straight-6 (`m52`) · Honda VTEC 4-cyl (`vtec`) · Chevrolet 454 V8 (`c454`) · Toyota 2JZ (`2jz`) · GM LS V8
+(`ls`) · Lexus LFA V10 (`lfa`) · Subaru EJ25 boxer (`ej25`) · Audi inline-5 (`i5`) · 60° V6 (`v6`) · Ferrari 412 T2
+V12 F1 (`f1v12`) · Suzuki Hayabusa (`busa`) · Harley-Davidson V-twin (`harley`). Without `engine` one is picked
+from the car's power, redline and mass.
 
-## Real engine sound (optional)
+Around it: exhaust pops & bangs and optional turbo, tyre screech, road rumble, wind, suspension thumps and crashes
+into walls. Cars further from the `listener` are quieter and panned. The recordings are found at
+`../assets/sounds/engines/` from the module file (the repo layout: keep `dist/` and `assets/` side by side), or pass
+`sounds: '/my/folder/'`. If a recording can't load, a synthesised engine plays instead and the console says why
+(`sound.ready` resolves `false`); `engine: 'synth-v8'` (or `synth-inline4`, `synth-inline6`, `synth-v12`) asks for
+that one on purpose.
 
-`src/engine-sound.js` plays engine sound packs recorded from **Engine Simulator** (AngeTheGreat, MIT): real
-simulated combustion and exhaust, not a synth. 13 packs ship in `assets/sounds/engines/` (~0.8 MB each; a game
-loads only the one it uses; `index.json` lists them): Ferrari F136 V8 · BMW M52 straight-6 · Honda VTEC 4-cyl ·
-Chevrolet 454 V8 · Toyota 2JZ · GM LS V8 · Lexus LFA V10 · Subaru EJ25 boxer · Audi inline-5 · 60° V6 · Ferrari 412 T2
-V12 (F1) · Suzuki Hayabusa · Harley-Davidson V-twin.
+Lower level, just the engine player:
 
 ```js
 import { loadEngineSound } from 'car/engine-sound';
