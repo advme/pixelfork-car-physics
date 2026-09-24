@@ -8,3 +8,5 @@ CLAUDE.md
 !.env.example
 .DS_Store
 *.log
+# tyre sounds: local test sprite until a source cleared for publishing is chosen
+assets/sounds/tyres/

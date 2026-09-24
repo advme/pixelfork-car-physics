@@ -110,7 +110,7 @@ export function createVehicle(physics, shape, o = {}) {
   const wheelbase = Math.max(0.5, avg(wheels.filter((w) => w.axle === 0).map((w) => w.rest[2])) - rearZ);
   for (const w of wheels) {
     w.probe = cylinder.create({ halfHeight: Math.max(0.04, w.width * 0.45), radius: w.radius, convexRadius: Math.min(0.05, w.radius * 0.2) });
-    w.grounded = false; w.load = 0; w.steer = 0; w.spin = 0; w.omega = 0; w.slip = 0; w.skid = 0; w.alpha = 0;
+    w.grounded = false; w.load = 0; w.steer = 0; w.spin = 0; w.omega = 0; w.slip = 0; w.skid = 0; w.alpha = 0; w.slide = 0; w.spinSlip = 0; w.lock = 0;
     w.contact = [0, 0, 0]; w.normal = [0, 1, 0]; w.hitBody = null;
   }
 
@@ -300,7 +300,7 @@ export function createVehicle(physics, shape, o = {}) {
         if (driven(w)) w.omega += (state.gear === -1 ? -1 : 1) * demand * 60 * dt;
         w.omega = clamp(w.omega, -D.redW / (ratio * D.final), D.redW / (ratio * D.final));
         w.spin += w.omega * dt;
-        w.skid = 0; w.vl = 0;
+        w.skid = 0; w.vl = 0; w.slide = 0; w.spinSlip = 0; w.lock = 0;
         continue;
       }
       const N = w.load;
@@ -360,7 +360,12 @@ export function createVehicle(physics, shape, o = {}) {
       w.omega = locked ? 0 : vl / w.radius + spinUp * 25 * Math.sign(driveForce || 1);
       w.spin += w.omega * dt;
       const speed = Math.hypot(vl, vt);
-      w.skid = clamp(Math.max((a - 0.12) * 5, spinUp, locked && Math.abs(vl) > 2 ? 0.8 : 0), 0, 1) * clamp((speed - 1) / 4, 0, 1);
+      const moving = clamp((speed - 1) / 4, 0, 1);
+      /* the three ways a tyre scrubs, 0..1 each (for sound): sliding sideways, spinning, locked */
+      w.slide = clamp((a - 0.12) * 5, 0, 1) * moving;
+      w.spinSlip = spinUp;
+      w.lock = locked && Math.abs(vl) > 2 ? 0.8 * moving : 0;
+      w.skid = clamp(Math.max((a - 0.12) * 5, spinUp, locked && Math.abs(vl) > 2 ? 0.8 : 0), 0, 1) * moving;
     }
 
     /* ---- stability control, only past a dead band: normal cornering is all tyres; it catches spins. Off while
@@ -452,7 +457,7 @@ export function createVehicle(physics, shape, o = {}) {
     rigidBody.setLinearVelocity(world, body, [0, 0, 0]);
     rigidBody.setAngularVelocity(world, body, [0, 0, 0]);
     Object.assign(state, { steer: 0, throttle: 0, brake: 0, reversing: false, gear: 1, shift: 0, rpm: D.idle });
-    for (const w of wheels) { w.s = D.bump; w.sPrev = D.bump; w.sDraw = D.bump; w.omega = 0; w.alpha = 0; w.skid = 0; }
+    for (const w of wheels) { w.s = D.bump; w.sPrev = D.bump; w.sDraw = D.bump; w.omega = 0; w.alpha = 0; w.skid = 0; w.slide = 0; w.spinSlip = 0; w.lock = 0; }
   }
 
   /** change numbers live (see TUNING); returns the params in use */

@@ -59,6 +59,8 @@ tools/serve.mjs    local no-cache server, port 8770; POST /__shot saves playgrou
 assets/models/test/  the test cars (CC-BY, see CREDITS.md)
 assets/sounds/engines/  engine sound packs recorded from Engine Simulator (MIT, see CREDITS.md): <name>.json + ONE
                    <name>.mp3 each (all loops, offsets in the json); games load them from here (keep the layout)
+tools/tyre-sound-pack.mjs  tyre recordings → assets/sounds/tyres/tyres.json + .mp3 (loops + chirps, from a cuts.json);
+                   that folder is git-ignored until recordings cleared for publishing are chosen
 tools/engine-render/   C++ recorder (links Engine Simulator's core) + README; tools/engine-sound-pack.mjs loops them
 ```
 

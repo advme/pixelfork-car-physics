@@ -613,6 +613,9 @@ function createVehicle(physics, shape, o = {}) {
     w.slip = 0;
     w.skid = 0;
     w.alpha = 0;
+    w.slide = 0;
+    w.spinSlip = 0;
+    w.lock = 0;
     w.contact = [0, 0, 0];
     w.normal = [0, 1, 0];
     w.hitBody = null;
@@ -817,6 +820,9 @@ function createVehicle(physics, shape, o = {}) {
         w.spin += w.omega * dt;
         w.skid = 0;
         w.vl = 0;
+        w.slide = 0;
+        w.spinSlip = 0;
+        w.lock = 0;
         continue;
       }
       const N = w.load;
@@ -871,7 +877,11 @@ function createVehicle(physics, shape, o = {}) {
       w.omega = locked ? 0 : vl / w.radius + spinUp * 25 * Math.sign(driveForce || 1);
       w.spin += w.omega * dt;
       const speed = Math.hypot(vl, vt);
-      w.skid = clamp(Math.max((a - 0.12) * 5, spinUp, locked && Math.abs(vl) > 2 ? 0.8 : 0), 0, 1) * clamp((speed - 1) / 4, 0, 1);
+      const moving = clamp((speed - 1) / 4, 0, 1);
+      w.slide = clamp((a - 0.12) * 5, 0, 1) * moving;
+      w.spinSlip = spinUp;
+      w.lock = locked && Math.abs(vl) > 2 ? 0.8 * moving : 0;
+      w.skid = clamp(Math.max((a - 0.12) * 5, spinUp, locked && Math.abs(vl) > 2 ? 0.8 : 0), 0, 1) * moving;
     }
     state.assist = hand ? 0 : Math.min(1, state.assist + dt / 0.8);
     if (grounded >= 2 && P.assist > 0) {
@@ -965,6 +975,9 @@ function createVehicle(physics, shape, o = {}) {
       w.omega = 0;
       w.alpha = 0;
       w.skid = 0;
+      w.slide = 0;
+      w.spinSlip = 0;
+      w.lock = 0;
     }
   }
   function tune(o2 = {}) {

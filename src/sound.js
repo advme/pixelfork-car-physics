@@ -15,7 +15,10 @@
      If the recording can't load, a synthesised engine plays instead (a console warning says why); you can also ask
      for that one on purpose (engine 'synth-inline4' | 'synth-inline6' | 'synth-v8' | 'synth-v12': no download).
    - exhaust pops & bangs, turbo (./engine-fx.js)
-   - tyre screech from car.skid, road rumble and wind with speed, a thump on hard suspension hits (car.impact)
+   - tyres: recorded loops (assets/sounds/tyres/tyres.json + .mp3, or o.tyreSounds) driven per wheel by how much it
+     slides sideways (squeal), spins (wheelspin, burnouts) or is locked (handbrake), pitched with slip and speed, plus a
+     short chirp when a slide starts suddenly; without the recordings, a synthesised screech from car.skid
+   - road rumble and wind with speed, a thump on hard suspension hits (car.impact)
    - a crash (noise burst + metal clank + thump) when the body is stopped or knocked sideways faster than any
      braking could (from the change of its velocity between frames; resets / teleports don't count)
    Every car's sound goes to one shared compressor per audio context, so 8 cars don't clip. */
@@ -40,6 +43,8 @@ export const SYNTH_ENGINES = Object.keys(SYNTH);
 
 /* where the recordings are: the repo's layout, from src/ or dist/ (a game engine's pack keeps the same layout) */
 const DEFAULT_SOUNDS = (() => { try { return new URL('../assets/sounds/engines/', import.meta.url).href; } catch { return '/assets/sounds/engines/'; } })();
+
+const DEFAULT_TYRES = (() => { try { return new URL('../assets/sounds/tyres/tyres.json', import.meta.url).href; } catch { return '/assets/sounds/tyres/tyres.json'; } })();
 
 const masters = new WeakMap();
 let shared = null;
@@ -84,18 +89,20 @@ const synthFor = (name) => (name === 'f1v12' || name === 'lfa' ? 'synth-v12' : [
 
 /**
  * @param {any} car from CAR.create()
- * @param {{ context?: BaseAudioContext, engine?: string, sounds?: string, volume?: number, listener?: import('three').Object3D,
- *   pops?: number, turbo?: number, blowoff?: number, tyres?: number, crashes?: number }} [o]
+ * @param {{ context?: BaseAudioContext, engine?: string, sounds?: string, tyreSounds?: string | false, volume?: number, listener?: import('three').Object3D,
+ *   engineVolume?: number, pops?: number, turbo?: number, blowoff?: number, valve?: 'blowoff' | 'flutter', tyres?: number, crashes?: number }} [o]
  */
 export function createCarSound(car, o = {}) {
   const known = (name) => !!name && (name in RECORDED_ENGINES || name in SYNTH);
   if (o.engine && !known(o.engine)) warnOnce(`unknown engine "${o.engine}"; engines: ${[...Object.keys(RECORDED_ENGINES), ...SYNTH_ENGINES].join(', ')}`);
   const opt = {
     engine: known(o.engine) ? o.engine : guessEngine(car.params),
-    volume: o.volume ?? 1, pops: o.pops ?? 0.6, turbo: o.turbo ?? 0, blowoff: o.blowoff ?? (o.turbo ? 0.5 : 0),
+    volume: o.volume ?? 1, engineVolume: o.engineVolume ?? 1, pops: o.pops ?? 0.6, turbo: o.turbo ?? 0,
+    blowoff: o.blowoff ?? (o.turbo ? 0.5 : 0), valve: o.valve === 'flutter' ? 'flutter' : 'blowoff',
     tyres: o.tyres ?? 1, crashes: o.crashes ?? 1,
   };
   const sounds = (o.sounds || DEFAULT_SOUNDS).replace(/\/?$/, '/');
+  const tyreUrl = o.tyreSounds === false ? null : o.tyreSounds || DEFAULT_TYRES;
   let listener = o.listener || null;
   let ctx = null, n = null, eng = null, muted = false, disposed = false;
   const st = { lastImpact: 0, v: null, p: [0, 0, 0], t: 0, crashAt: -1, thumpAt: -1 };
@@ -131,9 +138,48 @@ export function createCarSound(car, o = {}) {
 
     const fx = createEngineFx(ctx, { pops: opt.pops, turbo: opt.turbo, blowoff: opt.blowoff });
     fx.output.connect(out);
-    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, road, roadLp, wind, fx };
+    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, road, roadLp, wind, fx, tyres: null };
     startEngine();
+    startTyres();
     return true;
+  }
+
+  /* ---- recorded tyres: every loop runs silently and is faded in by the wheels; two slide loops take turns */
+  function startTyres() {
+    if (!tyreUrl) return;
+    loadEngineData(ctx, tyreUrl).then(({ meta, buffers }) => {
+      if (disposed || !n) return;
+      const bus = ctx.createGain();
+      bus.connect(n.out);
+      const loops = { slide: [], spin: [], lock: [] }, chirps = [];
+      meta.samples.forEach((smp, i) => {
+        if (smp.kind === 'chirp') { chirps.push({ buffer: buffers[i], start: smp.start + meta.pad, length: smp.length }); return; }
+        if (!loops[smp.kind]) return;
+        const src = ctx.createBufferSource();
+        src.buffer = buffers[i]; src.loop = true;
+        src.loopStart = smp.start + meta.pad; src.loopEnd = smp.start + meta.pad + smp.loop;
+        const gain = ctx.createGain(); gain.gain.value = 0;
+        src.connect(gain).connect(bus);
+        src.start(0, smp.start + meta.pad + Math.random() * smp.loop);
+        loops[smp.kind].push({ src, gain });
+      });
+      /* a kind with no recording borrows another's (spin → slide, lock → slide) */
+      for (const k of ['spin', 'lock']) if (!loops[k].length) loops[k] = loops.slide.slice(0, 1);
+      n.tyres = { bus, loops, chirps, mix: 0, mixTarget: 1, mixAt: 0, lastChirp: -1, prev: 0, prevT: 0 };
+      n.tyre.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
+    }, (err) => {
+      if (o.tyreSounds) warnOnce(`tyre sounds could not load from ${tyreUrl} (${err && err.message}); using the synthesised screech`);
+    });
+  }
+  function chirp(strength) {
+    const c = n.tyres.chirps[Math.floor(Math.random() * n.tyres.chirps.length)];
+    if (!c) return;
+    const t = ctx.currentTime;
+    const src = ctx.createBufferSource(), g = ctx.createGain();
+    src.buffer = c.buffer; src.playbackRate.value = 0.9 + Math.random() * 0.2;
+    g.gain.value = 0.45 * strength * opt.tyres;
+    src.connect(g).connect(n.tyres.bus);
+    src.start(t, c.start, c.length); src.stop(t + c.length / 0.85 + 0.05);
   }
 
   /* ---- the engine: a recording (loaded once per page) or the synthesised stand-in */
@@ -231,14 +277,49 @@ export function createCarSound(car, o = {}) {
     const t = ctx.currentTime, e = car.engine;
     if (eng) eng.update(e);
     const fo = n.fx.options;
-    fo.pops = opt.pops; fo.turbo = opt.turbo; fo.blowoff = opt.blowoff;
+    fo.pops = opt.pops; fo.turbo = opt.turbo; fo.blowoff = opt.blowoff; fo.valve = opt.valve;
+    n.engineBus.gain.setTargetAtTime(opt.engineVolume, t, 0.05);
     n.fx.update(e);
 
     /* tyres, road, wind */
     const sp = Math.abs(car.speed) / 3.6, onGround = car.grounded / Math.max(1, car.wheels.length);
-    const skid = car.skid * Math.min(1, sp / 4) * (onGround > 0 ? 1 : 0) * opt.tyres;
-    n.tyre.gain.setTargetAtTime(Math.min(0.4, skid * 0.4), t, 0.05);
-    n.tyreBp.frequency.setTargetAtTime(950 + skid * 500, t, 0.1);
+    const ty = n.tyres;
+    if (ty) {
+      /* per wheel: the most any grounded wheel slides / spins / locks, plus a little for every other one doing it */
+      let slide = 0, spin = 0, lock = 0, sSum = 0;
+      for (const w of car.wheels) {
+        if (!w.grounded) continue;
+        slide = Math.max(slide, w.slide || 0); spin = Math.max(spin, w.spinSlip || 0); lock = Math.max(lock, w.lock || 0); sSum += w.slide || 0;
+      }
+      slide = Math.min(1, slide + 0.15 * Math.max(0, sSum - slide));
+      const vol = opt.tyres, speedUp = Math.min(1, sp / 40);
+      const level = (x) => Math.pow(Math.min(1, x), 1.3) * 0.6 * vol;
+      /* the two slide loops take turns every few seconds, so a long drift doesn't repeat */
+      if (t > ty.mixAt) { ty.mixTarget = 1 - ty.mixTarget; ty.mixAt = t + 2.5 + Math.random() * 2.5; }
+      ty.mix += (ty.mixTarget - ty.mix) * 0.03;
+      const A = ty.loops.slide[0], B = ty.loops.slide[1] || ty.loops.slide[0];
+      const rate = 0.92 + 0.16 * slide + 0.08 * speedUp;
+      if (A === B) A.gain.gain.setTargetAtTime(level(slide), t, 0.04);
+      else {
+        A.gain.gain.setTargetAtTime(level(slide) * Math.cos(ty.mix * Math.PI / 2), t, 0.04);
+        B.gain.gain.setTargetAtTime(level(slide) * Math.sin(ty.mix * Math.PI / 2), t, 0.04);
+      }
+      for (const l of ty.loops.slide) l.src.playbackRate.setTargetAtTime(rate, t, 0.05);
+      const S = ty.loops.spin[0], L = ty.loops.lock[0];
+      /* wheelspin is loudest in burnouts and launches, softer as the car gets going (traction control keeps some
+         spin through the low gears of a powerful car; a full squeal all the way would tire the ear) */
+      const spinHeard = spin * (0.3 + 0.7 * Math.max(0, 1 - sp / 20)) * 0.85;
+      if (S && S !== A && S !== B) { S.gain.gain.setTargetAtTime(level(spinHeard), t, 0.04); S.src.playbackRate.setTargetAtTime(0.85 + 0.3 * spin + 0.05 * speedUp, t, 0.05); }
+      if (L && L !== A && L !== B && L !== S) { L.gain.gain.setTargetAtTime(level(lock * 1.2), t, 0.04); L.src.playbackRate.setTargetAtTime(0.95 + 0.08 * speedUp, t, 0.05); }
+      /* a slide or lock that starts suddenly gets a short chirp */
+      const now = Math.max(slide, lock);
+      if (ty.chirps.length && now > 0.55 && ty.prev < 0.2 && t - ty.prevT < 0.2 && t - ty.lastChirp > 0.8) { chirp(Math.min(1, now)); ty.lastChirp = t; }
+      if (now < 0.2) { ty.prev = now; ty.prevT = t; }
+    } else {
+      const skid = car.skid * Math.min(1, sp / 4) * (onGround > 0 ? 1 : 0) * opt.tyres;
+      n.tyre.gain.setTargetAtTime(Math.min(0.4, skid * 0.4), t, 0.05);
+      n.tyreBp.frequency.setTargetAtTime(950 + skid * 500, t, 0.1);
+    }
     n.road.gain.setTargetAtTime(0.08 * Math.min(1, sp / 25) * onGround, t, 0.1);
     n.roadLp.frequency.setTargetAtTime(140 + sp * 5, t, 0.2);
     n.wind.gain.setTargetAtTime(Math.min(0.3, (sp / 60) ** 2 * 0.3), t, 0.2);
@@ -274,7 +355,7 @@ export function createCarSound(car, o = {}) {
     start() { if (!n) build(); if (ctx && ctx.state === 'suspended') ctx.resume(); },
     /** true once the recorded engine plays (false: it could not load and the synthesised one plays) */
     ready,
-    /** the options in use; change them live: volume, pops, turbo, blowoff, tyres, crashes (engine: setEngine) */
+    /** the options in use; change them live: volume, engineVolume, pops, turbo, blowoff, valve, tyres, crashes (engine: setEngine) */
     options: opt,
     /** switch the engine: a recorded one ("f136", "m52", …) or a synthesised one ("synth-v8", …) */
     setEngine(name) {
@@ -302,7 +383,10 @@ export function createCarSound(car, o = {}) {
       const old = n;
       if (eng) eng.dispose();
       old.out.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
-      setTimeout(() => { old.noise.stop(); old.fx.dispose(); old.out.disconnect(); }, 120);
+      setTimeout(() => {
+        old.noise.stop(); old.fx.dispose(); old.out.disconnect();
+        if (old.tyres) for (const k in old.tyres.loops) for (const l of old.tyres.loops[k]) { try { l.src.stop(); } catch { /* shared or stopped */ } }
+      }, 120);
       n = null;
     },
   };

@@ -106,7 +106,14 @@ declare module "car" {
     steer: number;
     spin: number;
     slip: number;
+    /** 0..1: how much the tyre scrubs (the most of slide, spinSlip, lock) */
     skid: number;
+    /** 0..1: sliding sideways (cornering at the limit, drifting) */
+    slide: number;
+    /** 0..1: spinning faster than the road (wheelspin, burnouts; also at a standstill) */
+    spinSlip: number;
+    /** 0..1: locked (handbrake) while moving */
+    lock: number;
     contact: Vec3;
     normal: Vec3;
     [k: string]: any;
@@ -220,11 +227,14 @@ declare module "car/sound" {
   export interface CarSoundOptions {
     /** default: picked from the car's power, redline and mass */ engine?: EngineName;
     /** the folder with the recordings (default: assets/sounds/engines/ next to the library's folder) */ sounds?: string;
+    /** the tyre recordings' .json (default: assets/sounds/tyres/tyres.json next to the library's folder); false: synthesised */ tyreSounds?: string | false;
     /** 0..2 (1) */ volume?: number;
+    /** the engine alone, 0..2 (1) */ engineVolume?: number;
     /** where the player hears from, usually the camera: further cars are quieter and panned */ listener?: Object3D;
     /** exhaust pops & bangs 0..1 (0.6) */ pops?: number;
     /** turbo whine + whoosh 0..1 (0 = no turbo) */ turbo?: number;
     /** blow-off valve 0..1 (0.5 with a turbo) */ blowoff?: number;
+    /** "blowoff" (a short psssh, default) or "flutter" (compressor surge) */ valve?: "blowoff" | "flutter";
     /** tyre screech 0..1 (1) */ tyres?: number;
     /** crash sounds 0..1 (1) */ crashes?: number;
     /** an audio context to use (default: one shared by every car sound) */ context?: BaseAudioContext;
@@ -236,8 +246,8 @@ declare module "car/sound" {
     start(): void;
     /** true once the recorded engine plays; false if it could not load (the synthesised one plays) */
     ready: Promise<boolean>;
-    /** change live: volume, pops, turbo, blowoff, tyres, crashes (the engine with setEngine) */
-    options: { engine: EngineName; volume: number; pops: number; turbo: number; blowoff: number; tyres: number; crashes: number };
+    /** change live: volume, engineVolume, pops, turbo, blowoff, valve, tyres, crashes (the engine with setEngine) */
+    options: { engine: EngineName; volume: number; engineVolume: number; pops: number; turbo: number; blowoff: number; valve: "blowoff" | "flutter"; tyres: number; crashes: number };
     setEngine(name: EngineName): void;
     setListener(listener: Object3D | null): void;
     muted: boolean;

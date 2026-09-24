@@ -81,8 +81,11 @@ BMW M52 straight-6 (`m52`) · Honda VTEC 4-cyl (`vtec`) · Chevrolet 454 V8 (`c4
 V12 F1 (`f1v12`) · Suzuki Hayabusa (`busa`) · Harley-Davidson V-twin (`harley`). Without `engine` one is picked
 from the car's power, redline and mass.
 
-Around it: exhaust pops & bangs and optional turbo, tyre screech, road rumble, wind, suspension thumps and crashes
-into walls. Cars further from the `listener` are quieter and panned. The recordings are found at
+Around it: exhaust pops & bangs and optional turbo, tyres, road rumble, wind, suspension thumps and crashes into
+walls. Tyres play recorded loops when `assets/sounds/tyres/tyres.json` (+ `.mp3`) is there, made from any tyre
+recordings with `node tools/tyre-sound-pack.mjs <cuts.json> assets/sounds/tyres` — a squeal for sliding sideways,
+one for wheelspin, one for locked wheels, short chirps — each driven by how much the wheels really slide, spin or
+lock (`car.wheels[i].slide`, `.spinSlip`, `.lock`); without them, a synthesised screech. Cars further from the `listener` are quieter and panned. The recordings are found at
 `../assets/sounds/engines/` from the module file (the repo layout: keep `dist/` and `assets/` side by side), or pass
 `sounds: '/my/folder/'`. If a recording can't load, a synthesised engine plays instead and the console says why
 (`sound.ready` resolves `false`); `engine: 'synth-v8'` (or `synth-inline4`, `synth-inline6`, `synth-v12`) asks for
