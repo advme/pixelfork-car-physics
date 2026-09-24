@@ -15,9 +15,10 @@
      If the recording can't load, a synthesised engine plays instead (a console warning says why); you can also ask
      for that one on purpose (engine 'synth-inline4' | 'synth-inline6' | 'synth-v8' | 'synth-v12': no download).
    - exhaust pops & bangs, turbo (./engine-fx.js)
-   - tyres: recorded loops (assets/sounds/tyres/tyres.json + .mp3, or o.tyreSounds) driven per wheel by how much it
-     slides sideways (squeal), spins (wheelspin, burnouts) or is locked (handbrake), pitched with slip and speed, plus a
-     short chirp when a slide starts suddenly; without the recordings, a synthesised screech from car.skid
+   - tyres: recordings (assets/sounds/tyres/tyres.json + .mp3, or o.tyreSounds) played as a stream of short random
+     grains (never a repeating loop), driven per wheel by how much it really slides sideways (squeal), spins (burnouts
+     and launches only) or is locked (handbrake), pitched with slip and speed, plus a short chirp when a slide starts
+     suddenly; without the recordings, a synthesised screech from car.skid
    - road rumble and wind with speed, a thump on hard suspension hits (car.impact)
    - a crash (noise burst + metal clank + thump) when the body is stopped or knocked sideways faster than any
      braking could (from the change of its velocity between frames; resets / teleports don't count)
@@ -144,28 +145,52 @@ export function createCarSound(car, o = {}) {
     return true;
   }
 
-  /* ---- recorded tyres: every loop runs silently and is faded in by the wheels; two slide loops take turns */
+  /* ---- recorded tyres, played as grains: a steady stream of short overlapping pieces (0.3 s, half overlapped,
+     equal-power window), each from a random point of the recordings of its kind and slightly detuned. Short
+     recordings then never repeat as a pattern (a looped second of squeal is heard as the same wobble over and over). */
+  const GRAIN = 0.3, WINDOW = new Float32Array(64).map((_, i) => Math.sin((Math.PI * i) / 63));
+  function grainLayer(regions, bus) {
+    const out = ctx.createGain(); out.gain.value = 0; out.connect(bus);
+    const layer = {
+      level: 0, rate: 1, next: 0,
+      set(level, rate, t) { layer.level = level; layer.rate = rate; out.gain.setTargetAtTime(level, t, 0.05); },
+      schedule(t) {
+        if (layer.level < 0.003) { layer.next = t; return; }
+        if (layer.next < t) layer.next = t;
+        while (layer.next < t + 0.12) {
+          const r = regions[Math.floor(Math.random() * regions.length)];
+          const rate = layer.rate * (0.95 + Math.random() * 0.1);
+          const span = GRAIN * rate;
+          const at = r.start + Math.random() * Math.max(0, r.length - span);
+          const src = ctx.createBufferSource(), g = ctx.createGain();
+          src.buffer = r.buffer; src.playbackRate.value = rate;
+          g.gain.value = 0;
+          g.gain.setValueCurveAtTime(WINDOW, layer.next, GRAIN);
+          src.connect(g).connect(out);
+          src.start(layer.next, at, span + 0.01); src.stop(layer.next + GRAIN + 0.02);
+          layer.next += GRAIN / 2;
+        }
+      },
+      stop() { out.disconnect(); },
+    };
+    return layer;
+  }
   function startTyres() {
     if (!tyreUrl) return;
     loadEngineData(ctx, tyreUrl).then(({ meta, buffers }) => {
       if (disposed || !n) return;
       const bus = ctx.createGain();
       bus.connect(n.out);
-      const loops = { slide: [], spin: [], lock: [] }, chirps = [];
+      const regions = { slide: [], spin: [], lock: [] }, chirps = [];
       meta.samples.forEach((smp, i) => {
         if (smp.kind === 'chirp') { chirps.push({ buffer: buffers[i], start: smp.start + meta.pad, length: smp.length }); return; }
-        if (!loops[smp.kind]) return;
-        const src = ctx.createBufferSource();
-        src.buffer = buffers[i]; src.loop = true;
-        src.loopStart = smp.start + meta.pad; src.loopEnd = smp.start + meta.pad + smp.loop;
-        const gain = ctx.createGain(); gain.gain.value = 0;
-        src.connect(gain).connect(bus);
-        src.start(0, smp.start + meta.pad + Math.random() * smp.loop);
-        loops[smp.kind].push({ src, gain });
+        if (regions[smp.kind]) regions[smp.kind].push({ buffer: buffers[i], start: smp.start + meta.pad, length: smp.loop });
       });
-      /* a kind with no recording borrows another's (spin → slide, lock → slide) */
-      for (const k of ['spin', 'lock']) if (!loops[k].length) loops[k] = loops.slide.slice(0, 1);
-      n.tyres = { bus, loops, chirps, mix: 0, mixTarget: 1, mixAt: 0, lastChirp: -1, prev: 0, prevT: 0 };
+      /* a kind with no recording borrows the slide ones */
+      for (const k of ['spin', 'lock']) if (!regions[k].length) regions[k] = regions.slide;
+      if (!regions.slide.length) return;
+      const layers = { slide: grainLayer(regions.slide, bus), spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
+      n.tyres = { bus, layers, chirps, lastChirp: -1, prev: 0, prevT: 0 };
       n.tyre.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
     }, (err) => {
       if (o.tyreSounds) warnOnce(`tyre sounds could not load from ${tyreUrl} (${err && err.message}); using the synthesised screech`);
@@ -293,27 +318,20 @@ export function createCarSound(car, o = {}) {
       }
       slide = Math.min(1, slide + 0.15 * Math.max(0, sSum - slide));
       const vol = opt.tyres, speedUp = Math.min(1, sp / 40);
-      const level = (x) => Math.pow(Math.min(1, x), 1.3) * 0.6 * vol;
-      /* the two slide loops take turns every few seconds, so a long drift doesn't repeat */
-      if (t > ty.mixAt) { ty.mixTarget = 1 - ty.mixTarget; ty.mixAt = t + 2.5 + Math.random() * 2.5; }
-      ty.mix += (ty.mixTarget - ty.mix) * 0.03;
-      const A = ty.loops.slide[0], B = ty.loops.slide[1] || ty.loops.slide[0];
-      const rate = 0.92 + 0.16 * slide + 0.08 * speedUp;
-      if (A === B) A.gain.gain.setTargetAtTime(level(slide), t, 0.04);
-      else {
-        A.gain.gain.setTargetAtTime(level(slide) * Math.cos(ty.mix * Math.PI / 2), t, 0.04);
-        B.gain.gain.setTargetAtTime(level(slide) * Math.sin(ty.mix * Math.PI / 2), t, 0.04);
-      }
-      for (const l of ty.loops.slide) l.src.playbackRate.setTargetAtTime(rate, t, 0.05);
-      const S = ty.loops.spin[0], L = ty.loops.lock[0];
-      /* wheelspin is loudest in burnouts and launches, softer as the car gets going (traction control keeps some
-         spin through the low gears of a powerful car; a full squeal all the way would tire the ear) */
-      const spinHeard = spin * (0.3 + 0.7 * Math.max(0, 1 - sp / 20)) * 0.85;
-      if (S && S !== A && S !== B) { S.gain.gain.setTargetAtTime(level(spinHeard), t, 0.04); S.src.playbackRate.setTargetAtTime(0.85 + 0.3 * spin + 0.05 * speedUp, t, 0.05); }
-      if (L && L !== A && L !== B && L !== S) { L.gain.gain.setTargetAtTime(level(lock * 1.2), t, 0.04); L.src.playbackRate.setTargetAtTime(0.95 + 0.08 * speedUp, t, 0.05); }
+      /* heard only when the tyres really let go: a soft threshold, not the first hint of slip */
+      const knee = (x, lo, hi) => { const u = Math.max(0, Math.min(1, (x - lo) / (hi - lo))); return u * u * (3 - 2 * u); };
+      const slideHeard = knee(slide, 0.2, 0.85);
+      /* wheelspin: burnouts and launches only. A powerful car's traction control lets some spin through all the
+         time; that isn't heard as a squeal, so it fades out completely by ~50 km/h */
+      const spinHeard = knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14);
+      const lockHeard = knee(lock, 0.2, 0.7);
+      ty.layers.slide.set(0.55 * vol * slideHeard, 0.92 + 0.14 * slide + 0.08 * speedUp, t);
+      ty.layers.spin.set(0.5 * vol * spinHeard, 0.85 + 0.25 * spin + 0.1 * speedUp, t);
+      ty.layers.lock.set(0.55 * vol * lockHeard, 0.95 + 0.08 * speedUp, t);
+      for (const k in ty.layers) ty.layers[k].schedule(t);
       /* a slide or lock that starts suddenly gets a short chirp */
       const now = Math.max(slide, lock);
-      if (ty.chirps.length && now > 0.55 && ty.prev < 0.2 && t - ty.prevT < 0.2 && t - ty.lastChirp > 0.8) { chirp(Math.min(1, now)); ty.lastChirp = t; }
+      if (ty.chirps.length && now > 0.6 && ty.prev < 0.2 && t - ty.prevT < 0.2 && t - ty.lastChirp > 1.5) { chirp(Math.min(1, now)); ty.lastChirp = t; }
       if (now < 0.2) { ty.prev = now; ty.prevT = t; }
     } else {
       const skid = car.skid * Math.min(1, sp / 4) * (onGround > 0 ? 1 : 0) * opt.tyres;
@@ -385,7 +403,7 @@ export function createCarSound(car, o = {}) {
       old.out.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
       setTimeout(() => {
         old.noise.stop(); old.fx.dispose(); old.out.disconnect();
-        if (old.tyres) for (const k in old.tyres.loops) for (const l of old.tyres.loops[k]) { try { l.src.stop(); } catch { /* shared or stopped */ } }
+        if (old.tyres) for (const k in old.tyres.layers) old.tyres.layers[k].stop();
       }, 120);
       n = null;
     },

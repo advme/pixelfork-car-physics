@@ -102,7 +102,7 @@ engine.update(car.engine);   // every frame
 
 Make more packs from any Engine Simulator engine: see [`tools/engine-render/README.md`](tools/engine-render/README.md).
 
-Exhaust pops & bangs and turbo (whine, whoosh, blow-off valve or flutter), made live, no files (`src/engine-fx.js`):
+Exhaust pops & bangs and turbo (whine, blow-off valve or flutter), made live, no files (`src/engine-fx.js`):
 
 ```js
 import { createEngineFx } from 'car/engine-fx';

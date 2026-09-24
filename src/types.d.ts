@@ -232,7 +232,7 @@ declare module "car/sound" {
     /** the engine alone, 0..2 (1) */ engineVolume?: number;
     /** where the player hears from, usually the camera: further cars are quieter and panned */ listener?: Object3D;
     /** exhaust pops & bangs 0..1 (0.6) */ pops?: number;
-    /** turbo whine + whoosh 0..1 (0 = no turbo) */ turbo?: number;
+    /** turbo whine 0..1 (0 = no turbo) */ turbo?: number;
     /** blow-off valve 0..1 (0.5 with a turbo) */ blowoff?: number;
     /** "blowoff" (a short psssh, default) or "flutter" (compressor surge) */ valve?: "blowoff" | "flutter";
     /** tyre screech 0..1 (1) */ tyres?: number;
@@ -271,7 +271,7 @@ declare module "car/sound" {
 declare module "car/engine-fx" {
   export interface EngineFxOptions {
     /** 0..1 loudness (1) */ pops?: number;
-    /** 0..1 whine + whoosh (0.6); 0 = no turbo */ turbo?: number;
+    /** 0..1 the whine (0.6); 0 = no turbo */ turbo?: number;
     /** 0..1 the valve (0.6) */ blowoff?: number;
     valve?: "blowoff" | "flutter";
     /** everything (1) */ volume?: number;

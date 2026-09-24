@@ -97,25 +97,13 @@ function createEngineFx(ctx, o = {}) {
   whineGain.connect(tBus);
   whine.start();
   whine2.start();
-  const hiss = noiseSource(0);
-  const hissHp = ctx.createBiquadFilter();
-  hissHp.type = "highpass";
-  hissHp.frequency.value = 600;
-  const hissBp = ctx.createBiquadFilter();
-  hissBp.type = "lowpass";
-  hissBp.frequency.value = 1800;
-  hissBp.Q.value = 0.3;
-  const hissGain = ctx.createGain();
-  hissGain.gain.value = 0;
-  hiss.s.connect(hissHp).connect(hissBp).connect(hissGain).connect(tBus);
-  hiss.s.start(0, 0);
   function valve(t, amount) {
     const { s, offset } = noiseSource();
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
     bp.Q.value = 1.2;
     const g = ctx.createGain();
-    const vol = 0.2 * opt.blowoff * amount * amount;
+    const vol = 0.08 * opt.blowoff * amount * amount;
     if (opt.valve === "flutter") {
       const len = 0.25 + amount * 0.3;
       bp.frequency.setValueAtTime(1e3, t);
@@ -167,12 +155,10 @@ function createEngineFx(ctx, o = {}) {
       whine.frequency.setTargetAtTime(1500 + 5e3 * st.shaft, now, 0.05);
       whine2.frequency.setTargetAtTime((1500 + 5e3 * st.shaft) * 2.01, now, 0.05);
       whineGain.gain.setTargetAtTime(opt.turbo * (2e-3 + 0.012 * st.shaft * st.shaft), now, 0.08);
-      hissGain.gain.setTargetAtTime(opt.turbo * 0.035 * st.boost * st.boost * thr, now, 0.12);
     } else {
       st.boost = 0;
       st.shaft = 0;
       whineGain.gain.setTargetAtTime(0, now, 0.05);
-      hissGain.gain.setTargetAtTime(0, now, 0.05);
     }
     if (opt.pops > 0) {
       st.peakThrottle = Math.max(thr, st.peakThrottle - dt * 0.8);
@@ -208,7 +194,6 @@ function createEngineFx(ctx, o = {}) {
     dispose() {
       whine.stop();
       whine2.stop();
-      hiss.s.stop();
       output.disconnect();
     }
   };

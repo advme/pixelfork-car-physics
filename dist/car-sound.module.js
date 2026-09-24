@@ -97,25 +97,13 @@ function createEngineFx(ctx, o = {}) {
   whineGain.connect(tBus);
   whine.start();
   whine2.start();
-  const hiss = noiseSource(0);
-  const hissHp = ctx.createBiquadFilter();
-  hissHp.type = "highpass";
-  hissHp.frequency.value = 600;
-  const hissBp = ctx.createBiquadFilter();
-  hissBp.type = "lowpass";
-  hissBp.frequency.value = 1800;
-  hissBp.Q.value = 0.3;
-  const hissGain = ctx.createGain();
-  hissGain.gain.value = 0;
-  hiss.s.connect(hissHp).connect(hissBp).connect(hissGain).connect(tBus);
-  hiss.s.start(0, 0);
   function valve(t, amount) {
     const { s, offset } = noiseSource();
     const bp = ctx.createBiquadFilter();
     bp.type = "bandpass";
     bp.Q.value = 1.2;
     const g = ctx.createGain();
-    const vol = 0.2 * opt.blowoff * amount * amount;
+    const vol = 0.08 * opt.blowoff * amount * amount;
     if (opt.valve === "flutter") {
       const len = 0.25 + amount * 0.3;
       bp.frequency.setValueAtTime(1e3, t);
@@ -167,12 +155,10 @@ function createEngineFx(ctx, o = {}) {
       whine.frequency.setTargetAtTime(1500 + 5e3 * st.shaft, now, 0.05);
       whine2.frequency.setTargetAtTime((1500 + 5e3 * st.shaft) * 2.01, now, 0.05);
       whineGain.gain.setTargetAtTime(opt.turbo * (2e-3 + 0.012 * st.shaft * st.shaft), now, 0.08);
-      hissGain.gain.setTargetAtTime(opt.turbo * 0.035 * st.boost * st.boost * thr, now, 0.12);
     } else {
       st.boost = 0;
       st.shaft = 0;
       whineGain.gain.setTargetAtTime(0, now, 0.05);
-      hissGain.gain.setTargetAtTime(0, now, 0.05);
     }
     if (opt.pops > 0) {
       st.peakThrottle = Math.max(thr, st.peakThrottle - dt * 0.8);
@@ -208,7 +194,6 @@ function createEngineFx(ctx, o = {}) {
     dispose() {
       whine.stop();
       whine2.stop();
-      hiss.s.stop();
       output.disconnect();
     }
   };
@@ -492,32 +477,66 @@ function createCarSound(car, o = {}) {
     startTyres();
     return true;
   }
+  const GRAIN = 0.3, WINDOW = new Float32Array(64).map((_, i) => Math.sin(Math.PI * i / 63));
+  function grainLayer(regions, bus) {
+    const out = ctx.createGain();
+    out.gain.value = 0;
+    out.connect(bus);
+    const layer = {
+      level: 0,
+      rate: 1,
+      next: 0,
+      set(level, rate, t) {
+        layer.level = level;
+        layer.rate = rate;
+        out.gain.setTargetAtTime(level, t, 0.05);
+      },
+      schedule(t) {
+        if (layer.level < 3e-3) {
+          layer.next = t;
+          return;
+        }
+        if (layer.next < t) layer.next = t;
+        while (layer.next < t + 0.12) {
+          const r = regions[Math.floor(Math.random() * regions.length)];
+          const rate = layer.rate * (0.95 + Math.random() * 0.1);
+          const span = GRAIN * rate;
+          const at = r.start + Math.random() * Math.max(0, r.length - span);
+          const src = ctx.createBufferSource(), g = ctx.createGain();
+          src.buffer = r.buffer;
+          src.playbackRate.value = rate;
+          g.gain.value = 0;
+          g.gain.setValueCurveAtTime(WINDOW, layer.next, GRAIN);
+          src.connect(g).connect(out);
+          src.start(layer.next, at, span + 0.01);
+          src.stop(layer.next + GRAIN + 0.02);
+          layer.next += GRAIN / 2;
+        }
+      },
+      stop() {
+        out.disconnect();
+      }
+    };
+    return layer;
+  }
   function startTyres() {
     if (!tyreUrl) return;
     loadEngineData(ctx, tyreUrl).then(({ meta, buffers }) => {
       if (disposed || !n) return;
       const bus = ctx.createGain();
       bus.connect(n.out);
-      const loops = { slide: [], spin: [], lock: [] }, chirps = [];
+      const regions = { slide: [], spin: [], lock: [] }, chirps = [];
       meta.samples.forEach((smp, i) => {
         if (smp.kind === "chirp") {
           chirps.push({ buffer: buffers[i], start: smp.start + meta.pad, length: smp.length });
           return;
         }
-        if (!loops[smp.kind]) return;
-        const src = ctx.createBufferSource();
-        src.buffer = buffers[i];
-        src.loop = true;
-        src.loopStart = smp.start + meta.pad;
-        src.loopEnd = smp.start + meta.pad + smp.loop;
-        const gain = ctx.createGain();
-        gain.gain.value = 0;
-        src.connect(gain).connect(bus);
-        src.start(0, smp.start + meta.pad + Math.random() * smp.loop);
-        loops[smp.kind].push({ src, gain });
+        if (regions[smp.kind]) regions[smp.kind].push({ buffer: buffers[i], start: smp.start + meta.pad, length: smp.loop });
       });
-      for (const k of ["spin", "lock"]) if (!loops[k].length) loops[k] = loops.slide.slice(0, 1);
-      n.tyres = { bus, loops, chirps, mix: 0, mixTarget: 1, mixAt: 0, lastChirp: -1, prev: 0, prevT: 0 };
+      for (const k of ["spin", "lock"]) if (!regions[k].length) regions[k] = regions.slide;
+      if (!regions.slide.length) return;
+      const layers = { slide: grainLayer(regions.slide, bus), spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
+      n.tyres = { bus, layers, chirps, lastChirp: -1, prev: 0, prevT: 0 };
       n.tyre.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
     }, (err) => {
       if (o.tyreSounds) warnOnce(`tyre sounds could not load from ${tyreUrl} (${err && err.message}); using the synthesised screech`);
@@ -691,32 +710,19 @@ function createCarSound(car, o = {}) {
       }
       slide = Math.min(1, slide + 0.15 * Math.max(0, sSum - slide));
       const vol = opt.tyres, speedUp = Math.min(1, sp / 40);
-      const level2 = (x) => Math.pow(Math.min(1, x), 1.3) * 0.6 * vol;
-      if (t > ty.mixAt) {
-        ty.mixTarget = 1 - ty.mixTarget;
-        ty.mixAt = t + 2.5 + Math.random() * 2.5;
-      }
-      ty.mix += (ty.mixTarget - ty.mix) * 0.03;
-      const A = ty.loops.slide[0], B = ty.loops.slide[1] || ty.loops.slide[0];
-      const rate = 0.92 + 0.16 * slide + 0.08 * speedUp;
-      if (A === B) A.gain.gain.setTargetAtTime(level2(slide), t, 0.04);
-      else {
-        A.gain.gain.setTargetAtTime(level2(slide) * Math.cos(ty.mix * Math.PI / 2), t, 0.04);
-        B.gain.gain.setTargetAtTime(level2(slide) * Math.sin(ty.mix * Math.PI / 2), t, 0.04);
-      }
-      for (const l of ty.loops.slide) l.src.playbackRate.setTargetAtTime(rate, t, 0.05);
-      const S = ty.loops.spin[0], L = ty.loops.lock[0];
-      const spinHeard = spin * (0.3 + 0.7 * Math.max(0, 1 - sp / 20)) * 0.85;
-      if (S && S !== A && S !== B) {
-        S.gain.gain.setTargetAtTime(level2(spinHeard), t, 0.04);
-        S.src.playbackRate.setTargetAtTime(0.85 + 0.3 * spin + 0.05 * speedUp, t, 0.05);
-      }
-      if (L && L !== A && L !== B && L !== S) {
-        L.gain.gain.setTargetAtTime(level2(lock * 1.2), t, 0.04);
-        L.src.playbackRate.setTargetAtTime(0.95 + 0.08 * speedUp, t, 0.05);
-      }
+      const knee = (x, lo, hi) => {
+        const u = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
+        return u * u * (3 - 2 * u);
+      };
+      const slideHeard = knee(slide, 0.2, 0.85);
+      const spinHeard = knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14);
+      const lockHeard = knee(lock, 0.2, 0.7);
+      ty.layers.slide.set(0.55 * vol * slideHeard, 0.92 + 0.14 * slide + 0.08 * speedUp, t);
+      ty.layers.spin.set(0.5 * vol * spinHeard, 0.85 + 0.25 * spin + 0.1 * speedUp, t);
+      ty.layers.lock.set(0.55 * vol * lockHeard, 0.95 + 0.08 * speedUp, t);
+      for (const k in ty.layers) ty.layers[k].schedule(t);
       const now = Math.max(slide, lock);
-      if (ty.chirps.length && now > 0.55 && ty.prev < 0.2 && t - ty.prevT < 0.2 && t - ty.lastChirp > 0.8) {
+      if (ty.chirps.length && now > 0.6 && ty.prev < 0.2 && t - ty.prevT < 0.2 && t - ty.lastChirp > 1.5) {
         chirp(Math.min(1, now));
         ty.lastChirp = t;
       }
@@ -824,12 +830,7 @@ function createCarSound(car, o = {}) {
         old.noise.stop();
         old.fx.dispose();
         old.out.disconnect();
-        if (old.tyres) for (const k in old.tyres.loops) for (const l of old.tyres.loops[k]) {
-          try {
-            l.src.stop();
-          } catch {
-          }
-        }
+        if (old.tyres) for (const k in old.tyres.layers) old.tyres.layers[k].stop();
       }, 120);
       n = null;
     }
