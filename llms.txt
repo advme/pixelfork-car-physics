@@ -9,7 +9,7 @@
 - Your own model: CAR.create({ scene, physics, model: gltf.scene }); check one with CAR.inspect(model); wrong front → forward: "-z"
 - In a game with its own crashcat world object ({ world, layers, step, sync }): pass it as physics (AI-GUIDE §2)
 - Camera: CAR.createCamera(camera, car) → cam.update(dt), cam.orbit(dx, dy), cam.zoom(f)
-- Sound (optional): import { createCarSound } from "car/sound"; const sound = createCarSound(car, { engine: "f136", listener: camera }); then sound.update() every frame — a real recorded engine (13 to choose from, ~0.45 MB each, loaded by the library from assets/sounds/engines/), pops, turbo, tyres, road, wind, bumps, crashes
+- Sound (optional): import { createCarSound } from "car/sound"; const sound = createCarSound(car, { engine: "f136", listener: camera }); then sound.update() every frame — a real recorded engine (13 to choose from, ~0.45 MB each, loaded by the library from assets/sounds/engines/), pops, turbo blow-off, tyres, bumps, crashes
 - Lower level: "car/engine-sound" (just the recorded engine player), "car/engine-fx" (pops, bangs, turbo only)
 - Change the library: AGENTS.md
 - Sibling libraries: Pixelfork Ragdoll, Pixelfork VFX Library, Pixelfork SFX Library, Pixelfork PBR Library

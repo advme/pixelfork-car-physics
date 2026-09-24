@@ -14,12 +14,12 @@
      (`../assets/sounds/engines/` from the module file, the repo's own layout); `sounds: '<folder url>/'` elsewhere.
      If the recording can't load, a synthesised engine plays instead (a console warning says why); you can also ask
      for that one on purpose (engine 'synth-inline4' | 'synth-inline6' | 'synth-v8' | 'synth-v12': no download).
-   - exhaust pops & bangs, turbo (./engine-fx.js)
+   - exhaust pops & bangs, the turbo's blow-off valve (./engine-fx.js)
    - tyres: recordings (assets/sounds/tyres/tyres.json + .mp3, or o.tyreSounds) played as a stream of short random
      grains (never a repeating loop), driven per wheel by how much it really slides sideways (squeal), spins (burnouts
      and launches only) or is locked (handbrake), pitched with slip and speed, plus a short chirp when a slide starts
      suddenly; without the recordings, a synthesised screech from car.skid
-   - road rumble and wind with speed, a thump on hard suspension hits (car.impact)
+   - a thump on hard suspension hits (car.impact); no wind or road noise (a constant rush that masked the engine)
    - a crash (noise burst + metal clank + thump) when the body is stopped or knocked sideways faster than any
      braking could (from the change of its velocity between frames; resets / teleports don't count)
    Every car's sound goes to one shared compressor per audio context, so 8 cars don't clip. */
@@ -121,7 +121,7 @@ export function createCarSound(car, o = {}) {
     const engineBus = ctx.createGain();
     engineBus.connect(out);
 
-    /* noise for tyres, road, wind and crashes */
+    /* noise for the fallback tyre screech and crashes */
     const buf = ctx.createBuffer(1, ctx.sampleRate * 2, ctx.sampleRate);
     const d = buf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -129,17 +129,11 @@ export function createCarSound(car, o = {}) {
     const tyreBp = ctx.createBiquadFilter(); tyreBp.type = 'bandpass'; tyreBp.frequency.value = 1150; tyreBp.Q.value = 4;
     const tyre = ctx.createGain(); tyre.gain.value = 0;
     noise.connect(tyreBp).connect(tyre).connect(out);
-    const roadLp = ctx.createBiquadFilter(); roadLp.type = 'lowpass'; roadLp.frequency.value = 180;
-    const road = ctx.createGain(); road.gain.value = 0;
-    noise.connect(roadLp).connect(road).connect(out);
-    const windLp = ctx.createBiquadFilter(); windLp.type = 'lowpass'; windLp.frequency.value = 420;
-    const wind = ctx.createGain(); wind.gain.value = 0;
-    noise.connect(windLp).connect(wind).connect(out);
     noise.start();
 
     const fx = createEngineFx(ctx, { pops: opt.pops, turbo: opt.turbo, blowoff: opt.blowoff });
     fx.output.connect(out);
-    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, road, roadLp, wind, fx, tyres: null };
+    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, fx, tyres: null };
     startEngine();
     startTyres();
     return true;
@@ -306,7 +300,7 @@ export function createCarSound(car, o = {}) {
     n.engineBus.gain.setTargetAtTime(opt.engineVolume, t, 0.05);
     n.fx.update(e);
 
-    /* tyres, road, wind */
+    /* tyres (no wind or road noise: a constant rush at speed only masked the engine) */
     const sp = Math.abs(car.speed) / 3.6, onGround = car.grounded / Math.max(1, car.wheels.length);
     const ty = n.tyres;
     if (ty) {
@@ -338,9 +332,6 @@ export function createCarSound(car, o = {}) {
       n.tyre.gain.setTargetAtTime(Math.min(0.4, skid * 0.4), t, 0.05);
       n.tyreBp.frequency.setTargetAtTime(950 + skid * 500, t, 0.1);
     }
-    n.road.gain.setTargetAtTime(0.08 * Math.min(1, sp / 25) * onGround, t, 0.1);
-    n.roadLp.frequency.setTargetAtTime(140 + sp * 5, t, 0.2);
-    n.wind.gain.setTargetAtTime(Math.min(0.3, (sp / 60) ** 2 * 0.3), t, 0.2);
 
     /* knocks: suspension hits, and the body stopped or shoved faster than braking can */
     if (car.impact > st.lastImpact + 0.2 && t - st.thumpAt > 0.15) { thump(Math.min(1, car.impact)); st.thumpAt = t; }

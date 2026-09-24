@@ -11,8 +11,8 @@
    ~1.5 s (random pops, fading); a gear change at full throttle (ignition cut) gives a sharp bang; the rev limiter
    crackles. Each pop = a low exhaust thump + a band-passed noise burst + a short high crack, through a small
    generated "exhaust pipe" echo.
-   Turbo: boost builds with lag once the revs and throttle are up and falls when you lift; the shaft whines (pitch
-   with shaft speed; no intake hiss, it only cluttered the engine). Mixed to sit UNDER the engine: the valve
+   Turbo: boost builds with lag once the revs and throttle are up and falls when you lift (fx.boost, for a gauge);
+   only the valve is heard (no whine or intake hiss: they cluttered the engine). Mixed to sit UNDER the engine: the valve
    only vents after real boost has been held (> 60% for 0.6 s) and at most once every 3 s — a blow-off on every
    lift is tiring. 'blowoff' (a short falling psssh) or 'flutter' (compressor surge, stu-tu-tu). Sounds only: they
    don't change the physics. */
@@ -20,7 +20,7 @@
 /**
  * @param {BaseAudioContext} ctx
  * @param {{ pops?: number, turbo?: number, blowoff?: number, valve?: 'blowoff' | 'flutter', volume?: number }} [o]
- *   loudness 0..1 each (0 = off): pops (default 1), turbo = the whine (0.6), blowoff = the valve (0.6, kept quiet) ·
+ *   loudness 0..1 each (0 = off): pops (default 1), turbo > 0 = the car has one (0.6), blowoff = the valve (0.6, kept quiet) ·
  *   valve (default 'blowoff') · volume: everything (1). Change live through fx.options.
  */
 export function createEngineFx(ctx, o = {}) {
@@ -98,18 +98,12 @@ export function createEngineFx(ctx, o = {}) {
     stats.pops++;
   }
 
-  /* ---------------------------------------------------------------- turbo: whine (always running) */
+  /* ---------------------------------------------------------------- turbo: only the valve is heard (no whine or
+     intake hiss: both cluttered the engine); the boost is still worked out, for a gauge and for the valve */
   const tBus = ctx.createGain();
   /* the turbo sits under the engine: nothing above ~5 kHz */
   const tLp = ctx.createBiquadFilter(); tLp.type = 'lowpass'; tLp.frequency.value = 5000; tLp.Q.value = 0.5;
   tBus.connect(tLp).connect(output);
-  const whine = ctx.createOscillator(); whine.type = 'sine';
-  const whine2 = ctx.createOscillator(); whine2.type = 'triangle';
-  const whineGain = ctx.createGain(); whineGain.gain.value = 0;
-  const whine2Gain = ctx.createGain(); whine2Gain.gain.value = 0.35;
-  whine.connect(whineGain); whine2.connect(whine2Gain).connect(whineGain);
-  whineGain.connect(tBus);
-  whine.start(); whine2.start();
 
   function valve(t, amount) {
     const { s, offset } = noiseSource();
@@ -171,12 +165,8 @@ export function createEngineFx(ctx, o = {}) {
         st.boost *= 0.3;
         st.held = 0;
       }
-      whine.frequency.setTargetAtTime(1500 + 5000 * st.shaft, now, 0.05);
-      whine2.frequency.setTargetAtTime((1500 + 5000 * st.shaft) * 2.01, now, 0.05);
-      whineGain.gain.setTargetAtTime(opt.turbo * (0.002 + 0.012 * st.shaft * st.shaft), now, 0.08);
     } else {
       st.boost = 0; st.shaft = 0;
-      whineGain.gain.setTargetAtTime(0, now, 0.05);
     }
 
     /* ---- pops & bangs */
@@ -207,6 +197,6 @@ export function createEngineFx(ctx, o = {}) {
     output, update, options: opt, stats,
     /** 0..1 turbo boost now (≈ 0–1 bar) */
     get boost() { return st.boost; },
-    dispose() { whine.stop(); whine2.stop(); output.disconnect(); },
+    dispose() { output.disconnect(); },
   };
 }

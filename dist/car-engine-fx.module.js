@@ -84,19 +84,6 @@ function createEngineFx(ctx, o = {}) {
   tLp.frequency.value = 5e3;
   tLp.Q.value = 0.5;
   tBus.connect(tLp).connect(output);
-  const whine = ctx.createOscillator();
-  whine.type = "sine";
-  const whine2 = ctx.createOscillator();
-  whine2.type = "triangle";
-  const whineGain = ctx.createGain();
-  whineGain.gain.value = 0;
-  const whine2Gain = ctx.createGain();
-  whine2Gain.gain.value = 0.35;
-  whine.connect(whineGain);
-  whine2.connect(whine2Gain).connect(whineGain);
-  whineGain.connect(tBus);
-  whine.start();
-  whine2.start();
   function valve(t, amount) {
     const { s, offset } = noiseSource();
     const bp = ctx.createBiquadFilter();
@@ -152,13 +139,9 @@ function createEngineFx(ctx, o = {}) {
         st.boost *= 0.3;
         st.held = 0;
       }
-      whine.frequency.setTargetAtTime(1500 + 5e3 * st.shaft, now, 0.05);
-      whine2.frequency.setTargetAtTime((1500 + 5e3 * st.shaft) * 2.01, now, 0.05);
-      whineGain.gain.setTargetAtTime(opt.turbo * (2e-3 + 0.012 * st.shaft * st.shaft), now, 0.08);
     } else {
       st.boost = 0;
       st.shaft = 0;
-      whineGain.gain.setTargetAtTime(0, now, 0.05);
     }
     if (opt.pops > 0) {
       st.peakThrottle = Math.max(thr, st.peakThrottle - dt * 0.8);
@@ -192,8 +175,6 @@ function createEngineFx(ctx, o = {}) {
       return st.boost;
     },
     dispose() {
-      whine.stop();
-      whine2.stop();
       output.disconnect();
     }
   };

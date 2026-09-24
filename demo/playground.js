@@ -154,7 +154,7 @@ function buildTune() {
     for (const k of keys) box.append(slider(k, CAR.tuning[k], car.params[k], (v) => { overrides[k] = v; car.tune({ [k]: v }); }));
   }
   const hs = document.createElement('h3'); hs.textContent = 'Sound'; box.append(hs);
-  const SOUND = { engine: [0, 2, 'recorded engine'], pops: [0, 1.5, 'pops & bangs'], turbo: [0, 1.5, 'turbo whine'], blowoff: [0, 1.5, 'blow-off / flutter'] };
+  const SOUND = { engine: [0, 2, 'recorded engine'], pops: [0, 1.5, 'pops & bangs'], turbo: [0, 1.5, 'turbo (boost)'], blowoff: [0, 1.5, 'blow-off / flutter'] };
   for (const k in SOUND) box.append(slider(k, SOUND[k], mix[k], (v) => { mix[k] = v; applyMix(); }));
   const h = document.createElement('h3'); h.textContent = 'Camera'; box.append(h);
   for (const k in CAM_TUNING) box.append(slider(k, CAM_TUNING[k], cam.options[k], (v) => { cam.options[k] = v; }));

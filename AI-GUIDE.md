@@ -101,7 +101,7 @@ Arcade feel: `grip: 1.8, assist: 1`. Drifty: `drive: "rwd", assist: 0.3, handbra
 
 ## 7. Sound (optional module)
 Map `"car/sound"` too. One call gives the car its sound: a REAL recorded engine (pitch and tone follow the revs and
-throttle, gear changes, rev limiter), exhaust pops, tyre screech, road, wind, bumps, crashes into walls.
+throttle, gear changes, rev limiter), exhaust pops, turbo blow-off, tyre squeal, bumps, crashes into walls.
 ```js
 import { createCarSound } from "car/sound";
 const sound = createCarSound(car, { engine: "f136", listener: camera });   // one per car; far cars are quieter

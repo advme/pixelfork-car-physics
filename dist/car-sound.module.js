@@ -84,19 +84,6 @@ function createEngineFx(ctx, o = {}) {
   tLp.frequency.value = 5e3;
   tLp.Q.value = 0.5;
   tBus.connect(tLp).connect(output);
-  const whine = ctx.createOscillator();
-  whine.type = "sine";
-  const whine2 = ctx.createOscillator();
-  whine2.type = "triangle";
-  const whineGain = ctx.createGain();
-  whineGain.gain.value = 0;
-  const whine2Gain = ctx.createGain();
-  whine2Gain.gain.value = 0.35;
-  whine.connect(whineGain);
-  whine2.connect(whine2Gain).connect(whineGain);
-  whineGain.connect(tBus);
-  whine.start();
-  whine2.start();
   function valve(t, amount) {
     const { s, offset } = noiseSource();
     const bp = ctx.createBiquadFilter();
@@ -152,13 +139,9 @@ function createEngineFx(ctx, o = {}) {
         st.boost *= 0.3;
         st.held = 0;
       }
-      whine.frequency.setTargetAtTime(1500 + 5e3 * st.shaft, now, 0.05);
-      whine2.frequency.setTargetAtTime((1500 + 5e3 * st.shaft) * 2.01, now, 0.05);
-      whineGain.gain.setTargetAtTime(opt.turbo * (2e-3 + 0.012 * st.shaft * st.shaft), now, 0.08);
     } else {
       st.boost = 0;
       st.shaft = 0;
-      whineGain.gain.setTargetAtTime(0, now, 0.05);
     }
     if (opt.pops > 0) {
       st.peakThrottle = Math.max(thr, st.peakThrottle - dt * 0.8);
@@ -192,8 +175,6 @@ function createEngineFx(ctx, o = {}) {
       return st.boost;
     },
     dispose() {
-      whine.stop();
-      whine2.stop();
       output.disconnect();
     }
   };
@@ -457,22 +438,10 @@ function createCarSound(car, o = {}) {
     const tyre = ctx.createGain();
     tyre.gain.value = 0;
     noise.connect(tyreBp).connect(tyre).connect(out);
-    const roadLp = ctx.createBiquadFilter();
-    roadLp.type = "lowpass";
-    roadLp.frequency.value = 180;
-    const road = ctx.createGain();
-    road.gain.value = 0;
-    noise.connect(roadLp).connect(road).connect(out);
-    const windLp = ctx.createBiquadFilter();
-    windLp.type = "lowpass";
-    windLp.frequency.value = 420;
-    const wind = ctx.createGain();
-    wind.gain.value = 0;
-    noise.connect(windLp).connect(wind).connect(out);
     noise.start();
     const fx = createEngineFx(ctx, { pops: opt.pops, turbo: opt.turbo, blowoff: opt.blowoff });
     fx.output.connect(out);
-    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, road, roadLp, wind, fx, tyres: null };
+    n = { out, pan, engineBus, noise, buf, tyre, tyreBp, fx, tyres: null };
     startEngine();
     startTyres();
     return true;
@@ -735,9 +704,6 @@ function createCarSound(car, o = {}) {
       n.tyre.gain.setTargetAtTime(Math.min(0.4, skid * 0.4), t, 0.05);
       n.tyreBp.frequency.setTargetAtTime(950 + skid * 500, t, 0.1);
     }
-    n.road.gain.setTargetAtTime(0.08 * Math.min(1, sp / 25) * onGround, t, 0.1);
-    n.roadLp.frequency.setTargetAtTime(140 + sp * 5, t, 0.2);
-    n.wind.gain.setTargetAtTime(Math.min(0.3, (sp / 60) ** 2 * 0.3), t, 0.2);
     if (car.impact > st.lastImpact + 0.2 && t - st.thumpAt > 0.15) {
       thump(Math.min(1, car.impact));
       st.thumpAt = t;

@@ -81,8 +81,8 @@ BMW M52 straight-6 (`m52`) · Honda VTEC 4-cyl (`vtec`) · Chevrolet 454 V8 (`c4
 V12 F1 (`f1v12`) · Suzuki Hayabusa (`busa`) · Harley-Davidson V-twin (`harley`). Without `engine` one is picked
 from the car's power, redline and mass.
 
-Around it: exhaust pops & bangs and optional turbo, tyres, road rumble, wind, suspension thumps and crashes into
-walls. Tyres play recorded loops when `assets/sounds/tyres/tyres.json` (+ `.mp3`) is there, made from any tyre
+Around it: exhaust pops & bangs, an optional turbo blow-off valve, tyres, suspension thumps and crashes into walls
+(no wind, road or turbo-whine noise: they masked the engine). Tyres play recorded loops when `assets/sounds/tyres/tyres.json` (+ `.mp3`) is there, made from any tyre
 recordings with `node tools/tyre-sound-pack.mjs <cuts.json> assets/sounds/tyres` — a squeal for sliding sideways,
 one for wheelspin, one for locked wheels, short chirps — each driven by how much the wheels really slide, spin or
 lock (`car.wheels[i].slide`, `.spinSlip`, `.lock`); without them, a synthesised screech. Cars further from the `listener` are quieter and panned. The recordings are found at
@@ -102,7 +102,7 @@ engine.update(car.engine);   // every frame
 
 Make more packs from any Engine Simulator engine: see [`tools/engine-render/README.md`](tools/engine-render/README.md).
 
-Exhaust pops & bangs and turbo (whine, blow-off valve or flutter), made live, no files (`src/engine-fx.js`):
+Exhaust pops & bangs and the turbo's blow-off valve (or flutter), made live, no files (`src/engine-fx.js`):
 
 ```js
 import { createEngineFx } from 'car/engine-fx';
