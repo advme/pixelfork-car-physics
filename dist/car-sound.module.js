@@ -504,8 +504,52 @@ function createCarSound(car, o = {}) {
       });
       for (const k of ["spin", "lock"]) if (!regions[k].length) regions[k] = regions.slide;
       if (!regions.slide.length) return;
-      const layers = { slide: grainLayer(regions.slide, bus), spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
-      n.tyres = { bus, layers, chirps, lastChirp: -1, prev: 0, prevT: 0 };
+      const layers = { spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
+      const wheels = car.wheels.map((w) => {
+        const wbus = ctx.createGain();
+        const chatter = ctx.createGain();
+        chatter.gain.value = 1;
+        const lfo = ctx.createOscillator();
+        lfo.frequency.value = 8 + Math.random() * 4;
+        const depth = ctx.createGain();
+        depth.gain.value = 0;
+        lfo.connect(depth).connect(chatter.gain);
+        lfo.start();
+        const side = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (side) {
+          side.pan.value = w.left ? -0.3 : 0.3;
+          wbus.connect(chatter).connect(side).connect(bus);
+        } else wbus.connect(chatter).connect(bus);
+        const shelf = ctx.createBiquadFilter();
+        shelf.type = "highshelf";
+        shelf.frequency.value = 2500;
+        shelf.gain.value = 5;
+        shelf.connect(wbus);
+        const scrubBp = ctx.createBiquadFilter();
+        scrubBp.type = "bandpass";
+        scrubBp.frequency.value = 600;
+        scrubBp.Q.value = 1.1;
+        const scrub = ctx.createGain();
+        scrub.gain.value = 0;
+        n.noise.connect(scrubBp).connect(scrub).connect(wbus);
+        return {
+          squeal: grainLayer(regions.slide, wbus),
+          screech: grainLayer([...regions.lock, ...regions.slide], shelf),
+          scrub,
+          scrubBp,
+          lfo,
+          depth,
+          /* its own pitch (±4%), a slow random walk of pitch and loudness, a burst on bumps, how long it's held */
+          offset: 0.96 + Math.random() * 0.08,
+          pw: 0,
+          aw: 0,
+          burst: 0,
+          held: 0,
+          quiet: 0,
+          prevLoad: 0
+        };
+      });
+      n.tyres = { bus, layers, wheels, chirps, lastChirp: -1, prev: 0, prevT: 0, lastT: ctx.currentTime };
       n.tyre.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
     }, (err) => {
       if (o.tyreSounds) warnOnce(`tyre sounds could not load from ${tyreUrl} (${err && err.message}); using the synthesised screech`);
@@ -669,24 +713,58 @@ function createCarSound(car, o = {}) {
     const sp = Math.abs(car.speed) / 3.6, onGround = car.grounded / Math.max(1, car.wheels.length);
     const ty = n.tyres;
     if (ty) {
-      let slide = 0, spin = 0, lock = 0, sSum = 0;
+      const tdt = Math.min(0.1, Math.max(0, t - ty.lastT));
+      ty.lastT = t;
+      let slide = 0, spin = 0, lock = 0;
       for (const w of car.wheels) {
         if (!w.grounded) continue;
         slide = Math.max(slide, w.slide || 0);
         spin = Math.max(spin, w.spinSlip || 0);
         lock = Math.max(lock, w.lock || 0);
-        sSum += w.slide || 0;
       }
-      slide = Math.min(1, slide + 0.15 * Math.max(0, sSum - slide));
       const vol = opt.tyres, speedUp = Math.min(1, sp / 40);
       const knee = (x, lo, hi) => {
         const u = Math.max(0, Math.min(1, (x - lo) / (hi - lo)));
         return u * u * (3 - 2 * u);
       };
-      const slideHeard = knee(slide, 0.2, 0.85);
-      const spinHeard = knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14);
-      const lockHeard = knee(lock, 0.2, 0.7);
-      ty.layers.slide.set(0.55 * vol * slideHeard, 0.92 + 0.14 * slide + 0.08 * speedUp, t);
+      const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+      const audible = (st.level ?? 1) > 0.03;
+      car.wheels.forEach((w, i) => {
+        const v2 = ty.wheels[i];
+        if (!v2) return;
+        const s0 = w.grounded && audible ? w.slide || 0 : 0;
+        const scrubL = knee(s0, 0.08, 0.35) * (1 - 0.55 * knee(s0, 0.5, 0.9));
+        const squealL = knee(s0, 0.25, 0.65) * (1 - 0.45 * knee(s0, 0.75, 1));
+        const screechL = knee(s0, 0.65, 1);
+        v2.pw += -v2.pw * tdt / 0.7 + gauss() * Math.sqrt(tdt) * 0.035;
+        v2.aw += -v2.aw * tdt / 0.5 + gauss() * Math.sqrt(tdt) * 0.18;
+        v2.pw = Math.max(-0.05, Math.min(0.05, v2.pw));
+        v2.aw = Math.max(-0.25, Math.min(0.25, v2.aw));
+        const load = w.load || 0;
+        if (s0 > 0.3 && v2.prevLoad > 0 && Math.abs(load - v2.prevLoad) / v2.prevLoad > 0.25) v2.burst = 1;
+        v2.prevLoad = load;
+        v2.burst = Math.max(0, v2.burst - tdt / 0.18);
+        if (s0 > 0.3) {
+          v2.held += tdt;
+          v2.quiet = 0;
+        } else if (s0 < 0.15) {
+          v2.quiet += tdt;
+          if (v2.quiet > 0.35) v2.held = 0;
+        }
+        const settle = 0.7 + 0.3 * Math.exp(-v2.held / 1.2);
+        const amp = 0.4 * vol * settle * (1 + v2.aw) * (1 + 0.45 * v2.burst);
+        const rate = v2.offset * (1 + v2.pw) * (1 + 0.03 * v2.burst) * (0.92 + 0.14 * s0 + 0.08 * speedUp);
+        v2.squeal.set(amp * squealL, rate, t);
+        v2.screech.set(amp * screechL * 0.85, rate * 1.05, t);
+        v2.scrub.gain.setTargetAtTime(amp * scrubL * 0.5, t, 0.05);
+        v2.scrubBp.frequency.setTargetAtTime(450 + 600 * s0 + 4 * sp, t, 0.1);
+        v2.depth.gain.setTargetAtTime(s0 > 0.1 ? 0.1 + 0.12 * s0 : 0, t, 0.1);
+        v2.lfo.frequency.setTargetAtTime(8 + 6 * s0 + 0.08 * sp, t, 0.2);
+        v2.squeal.schedule(t);
+        v2.screech.schedule(t);
+      });
+      const spinHeard = audible ? knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14) : 0;
+      const lockHeard = audible ? knee(lock, 0.2, 0.7) : 0;
       ty.layers.spin.set(0.5 * vol * spinHeard, 0.85 + 0.25 * spin + 0.1 * speedUp, t);
       ty.layers.lock.set(0.55 * vol * lockHeard, 0.95 + 0.08 * speedUp, t);
       for (const k in ty.layers) ty.layers[k].schedule(t);
@@ -736,6 +814,7 @@ function createCarSound(car, o = {}) {
       if (n.pan) n.pan.pan.setTargetAtTime(dist > 1 ? 0.8 * (P[0] * R[0] + P[1] * R[1] + P[2] * R[2]) / dist : 0, t, 0.05);
     }
     n.out.gain.setTargetAtTime(muted ? 0 : level, t, 0.05);
+    st.level = muted ? 0 : level;
   }
   return {
     update,
@@ -796,7 +875,15 @@ function createCarSound(car, o = {}) {
         old.noise.stop();
         old.fx.dispose();
         old.out.disconnect();
-        if (old.tyres) for (const k in old.tyres.layers) old.tyres.layers[k].stop();
+        if (old.tyres) {
+          for (const k in old.tyres.layers) old.tyres.layers[k].stop();
+          for (const v of old.tyres.wheels) {
+            v.squeal.stop();
+            v.screech.stop();
+            v.lfo.stop();
+            v.scrub.disconnect();
+          }
+        }
       }, 120);
       n = null;
     }

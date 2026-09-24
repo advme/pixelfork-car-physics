@@ -16,9 +16,11 @@
      for that one on purpose (engine 'synth-inline4' | 'synth-inline6' | 'synth-v8' | 'synth-v12': no download).
    - exhaust pops & bangs, the turbo's blow-off valve (./engine-fx.js)
    - tyres: recordings (assets/sounds/tyres/tyres.json + .mp3, or o.tyreSounds) played as a stream of short random
-     grains (never a repeating loop), driven per wheel by how much it really slides sideways (squeal), spins (burnouts
-     and launches only) or is locked (handbrake), pitched with slip and speed, plus a short chirp when a slide starts
-     suddenly; without the recordings, a synthesised screech from car.skid
+     grains (never a repeating loop). Sliding: one voice per wheel (own pitch, own side), each crossfading a rough
+     scrub → the squeal → a bright screech with how far that tyre slides; a slow random walk of pitch and loudness,
+     a light chatter, a burst when the tyre's load jumps; loud as a slide starts, settling ~30% lower while held.
+     Wheelspin (burnouts, launches) and locked wheels (handbrake) have their own layers; a chirp when a slide starts
+     suddenly. Without the recordings, a synthesised screech from car.skid
    - a thump on hard suspension hits (car.impact); no wind or road noise (a constant rush that masked the engine)
    - a crash (noise burst + metal clank + thump) when the body is stopped or knocked sideways faster than any
      braking could (from the change of its velocity between frames; resets / teleports don't count)
@@ -183,8 +185,32 @@ export function createCarSound(car, o = {}) {
       /* a kind with no recording borrows the slide ones */
       for (const k of ['spin', 'lock']) if (!regions[k].length) regions[k] = regions.slide;
       if (!regions.slide.length) return;
-      const layers = { slide: grainLayer(regions.slide, bus), spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
-      n.tyres = { bus, layers, chirps, lastChirp: -1, prev: 0, prevT: 0 };
+      const layers = { spin: grainLayer(regions.spin, bus), lock: grainLayer(regions.lock, bus) };
+      /* sliding: one voice per wheel (its own pitch and side, so you hear the tyres working separately), each with
+         three intensity levels: a rough scrub (filtered noise), the squeal, and a bright screech for big slides */
+      const wheels = car.wheels.map((w) => {
+        const wbus = ctx.createGain();
+        /* tyre chatter: a light, fast flutter on the whole wheel voice */
+        const chatter = ctx.createGain(); chatter.gain.value = 1;
+        const lfo = ctx.createOscillator(); lfo.frequency.value = 8 + Math.random() * 4;
+        const depth = ctx.createGain(); depth.gain.value = 0;
+        lfo.connect(depth).connect(chatter.gain); lfo.start();
+        const side = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
+        if (side) { side.pan.value = w.left ? -0.3 : 0.3; wbus.connect(chatter).connect(side).connect(bus); } else wbus.connect(chatter).connect(bus);
+        const shelf = ctx.createBiquadFilter(); shelf.type = 'highshelf'; shelf.frequency.value = 2500; shelf.gain.value = 5;
+        shelf.connect(wbus);
+        const scrubBp = ctx.createBiquadFilter(); scrubBp.type = 'bandpass'; scrubBp.frequency.value = 600; scrubBp.Q.value = 1.1;
+        const scrub = ctx.createGain(); scrub.gain.value = 0;
+        n.noise.connect(scrubBp).connect(scrub).connect(wbus);
+        return {
+          squeal: grainLayer(regions.slide, wbus),
+          screech: grainLayer([...regions.lock, ...regions.slide], shelf),
+          scrub, scrubBp, lfo, depth,
+          /* its own pitch (±4%), a slow random walk of pitch and loudness, a burst on bumps, how long it's held */
+          offset: 0.96 + Math.random() * 0.08, pw: 0, aw: 0, burst: 0, held: 0, quiet: 0, prevLoad: 0,
+        };
+      });
+      n.tyres = { bus, layers, wheels, chirps, lastChirp: -1, prev: 0, prevT: 0, lastT: ctx.currentTime };
       n.tyre.gain.setTargetAtTime(0, ctx.currentTime, 0.05);
     }, (err) => {
       if (o.tyreSounds) warnOnce(`tyre sounds could not load from ${tyreUrl} (${err && err.message}); using the synthesised screech`);
@@ -304,22 +330,56 @@ export function createCarSound(car, o = {}) {
     const sp = Math.abs(car.speed) / 3.6, onGround = car.grounded / Math.max(1, car.wheels.length);
     const ty = n.tyres;
     if (ty) {
-      /* per wheel: the most any grounded wheel slides / spins / locks, plus a little for every other one doing it */
-      let slide = 0, spin = 0, lock = 0, sSum = 0;
+      const tdt = Math.min(0.1, Math.max(0, t - ty.lastT));
+      ty.lastT = t;
+      let slide = 0, spin = 0, lock = 0;
       for (const w of car.wheels) {
         if (!w.grounded) continue;
-        slide = Math.max(slide, w.slide || 0); spin = Math.max(spin, w.spinSlip || 0); lock = Math.max(lock, w.lock || 0); sSum += w.slide || 0;
+        slide = Math.max(slide, w.slide || 0); spin = Math.max(spin, w.spinSlip || 0); lock = Math.max(lock, w.lock || 0);
       }
-      slide = Math.min(1, slide + 0.15 * Math.max(0, sSum - slide));
       const vol = opt.tyres, speedUp = Math.min(1, sp / 40);
-      /* heard only when the tyres really let go: a soft threshold, not the first hint of slip */
+      /* heard only when the tyres really let go: soft thresholds, not the first hint of slip */
       const knee = (x, lo, hi) => { const u = Math.max(0, Math.min(1, (x - lo) / (hi - lo))); return u * u * (3 - 2 * u); };
-      const slideHeard = knee(slide, 0.2, 0.85);
-      /* wheelspin: burnouts and launches only. A powerful car's traction control lets some spin through all the
+      const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 2;
+      /* far away (other cars): no grains at all */
+      const audible = (st.level ?? 1) > 0.03;
+
+      /* ---- sliding, per wheel */
+      car.wheels.forEach((w, i) => {
+        const v = ty.wheels[i];
+        if (!v) return;
+        const s0 = w.grounded && audible ? w.slide || 0 : 0;
+        /* 2. intensity: scrub for small slides (stays a little underneath), squeal in the middle, screech at the limit */
+        const scrubL = knee(s0, 0.08, 0.35) * (1 - 0.55 * knee(s0, 0.5, 0.9));
+        const squealL = knee(s0, 0.25, 0.65) * (1 - 0.45 * knee(s0, 0.75, 1));
+        const screechL = knee(s0, 0.65, 1);
+        /* 4. a slow random walk of pitch (±5%) and loudness (±25%); a burst when the load on the tyre jumps (bumps,
+           weight shifting) */
+        v.pw += -v.pw * tdt / 0.7 + gauss() * Math.sqrt(tdt) * 0.035;
+        v.aw += -v.aw * tdt / 0.5 + gauss() * Math.sqrt(tdt) * 0.18;
+        v.pw = Math.max(-0.05, Math.min(0.05, v.pw)); v.aw = Math.max(-0.25, Math.min(0.25, v.aw));
+        const load = w.load || 0;
+        if (s0 > 0.3 && v.prevLoad > 0 && Math.abs(load - v.prevLoad) / v.prevLoad > 0.25) v.burst = 1;
+        v.prevLoad = load;
+        v.burst = Math.max(0, v.burst - tdt / 0.18);
+        /* 5. held: loud when the slide starts, settling ~30% lower if it's held; back to full after a pause */
+        if (s0 > 0.3) { v.held += tdt; v.quiet = 0; } else if (s0 < 0.15) { v.quiet += tdt; if (v.quiet > 0.35) v.held = 0; }
+        const settle = 0.7 + 0.3 * Math.exp(-v.held / 1.2);
+        const amp = 0.4 * vol * settle * (1 + v.aw) * (1 + 0.45 * v.burst);
+        const rate = v.offset * (1 + v.pw) * (1 + 0.03 * v.burst) * (0.92 + 0.14 * s0 + 0.08 * speedUp);
+        v.squeal.set(amp * squealL, rate, t);
+        v.screech.set(amp * screechL * 0.85, rate * 1.05, t);
+        v.scrub.gain.setTargetAtTime(amp * scrubL * 0.5, t, 0.05);
+        v.scrubBp.frequency.setTargetAtTime(450 + 600 * s0 + 4 * sp, t, 0.1);
+        v.depth.gain.setTargetAtTime(s0 > 0.1 ? 0.1 + 0.12 * s0 : 0, t, 0.1);
+        v.lfo.frequency.setTargetAtTime(8 + 6 * s0 + 0.08 * sp, t, 0.2);
+        v.squeal.schedule(t); v.screech.schedule(t);
+      });
+
+      /* ---- wheelspin: burnouts and launches only. A powerful car's traction control lets some spin through all the
          time; that isn't heard as a squeal, so it fades out completely by ~50 km/h */
-      const spinHeard = knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14);
-      const lockHeard = knee(lock, 0.2, 0.7);
-      ty.layers.slide.set(0.55 * vol * slideHeard, 0.92 + 0.14 * slide + 0.08 * speedUp, t);
+      const spinHeard = audible ? knee(spin, 0.35, 0.95) * Math.max(0, 1 - sp / 14) : 0;
+      const lockHeard = audible ? knee(lock, 0.2, 0.7) : 0;
       ty.layers.spin.set(0.5 * vol * spinHeard, 0.85 + 0.25 * spin + 0.1 * speedUp, t);
       ty.layers.lock.set(0.55 * vol * lockHeard, 0.95 + 0.08 * speedUp, t);
       for (const k in ty.layers) ty.layers[k].schedule(t);
@@ -356,6 +416,7 @@ export function createCarSound(car, o = {}) {
       if (n.pan) n.pan.pan.setTargetAtTime(dist > 1 ? 0.8 * (P[0] * R[0] + P[1] * R[1] + P[2] * R[2]) / dist : 0, t, 0.05);
     }
     n.out.gain.setTargetAtTime(muted ? 0 : level, t, 0.05);
+    st.level = muted ? 0 : level;
   }
 
   return {
@@ -394,7 +455,10 @@ export function createCarSound(car, o = {}) {
       old.out.gain.setTargetAtTime(0, ctx.currentTime, 0.02);
       setTimeout(() => {
         old.noise.stop(); old.fx.dispose(); old.out.disconnect();
-        if (old.tyres) for (const k in old.tyres.layers) old.tyres.layers[k].stop();
+        if (old.tyres) {
+          for (const k in old.tyres.layers) old.tyres.layers[k].stop();
+          for (const v of old.tyres.wheels) { v.squeal.stop(); v.screech.stop(); v.lfo.stop(); v.scrub.disconnect(); }
+        }
       }, 120);
       n = null;
     },
