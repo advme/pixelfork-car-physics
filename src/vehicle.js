@@ -14,7 +14,7 @@
      brakes      ABS-like; braking at a standstill reverses; handbrake locks the rear
      steering    input smoothed (quick to centre, slower at speed), much less lock at speed, Ackermann
      donut       gas + handbrake + full lock below ~30 km/h: spins on the spot round the front axle (rear tyres spinning)
-    assist      (like GTA) automatic countersteer when the rear slides, stability control only past a dead band
+     assist      (like GTA) automatic countersteer when the rear slides, stability control only past a dead band
                  (normal cornering is all tyres), off while the handbrake is held; in the air the nose follows the
                  flight path and the car levels itself, so jumps land on the wheels
    Car frame: +Z forward, +Y up, +X left, metres; the body's origin is between the wheels at the tyres' bottom. */
