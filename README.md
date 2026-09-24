@@ -143,7 +143,7 @@ Race: `http://localhost:8770/demo/race.html` (or 🏁 Race in the playground): t
 inspired by Baku (long seafront straight, 90° city corners, a narrow old-town section, ~3.4 km), 8 cars (you + 7 AI),
 three car choices balanced to within ~1.5 s a lap. `npm run test:race` runs a whole AI race headless.
 
-Playground keys: W/↑ gas · S/↓ brake, reverse · A D / ← → steer · Space handbrake · R reset · drag the mouse to look
+Playground keys: W/↑ gas · S/↓ brake, reverse · A D / ← → steer · Space handbrake · W + Space + A/D: donut (spins on the spot) · R reset · drag the mouse to look
 around, wheel to zoom · C camera · T tuning panel · M sound · B debug. Gamepad works too.
 
 ## Credits and licence

@@ -13,7 +13,8 @@
                  rev limiter, launch revs; wheelspin when the drive asks for more than the tyres give
      brakes      ABS-like; braking at a standstill reverses; handbrake locks the rear
      steering    input smoothed (quick to centre, slower at speed), much less lock at speed, Ackermann
-     assist      (like GTA) automatic countersteer when the rear slides, stability control only past a dead band
+     donut       gas + handbrake + full lock below ~30 km/h: spins on the spot round the front axle (rear tyres spinning)
+    assist      (like GTA) automatic countersteer when the rear slides, stability control only past a dead band
                  (normal cornering is all tyres), off while the handbrake is held; in the air the nose follows the
                  flight path and the car levels itself, so jumps land on the wheels
    Car frame: +Z forward, +Y up, +X left, metres; the body's origin is between the wheels at the tyres' bottom. */
@@ -157,7 +158,7 @@ export function createVehicle(physics, shape, o = {}) {
 
   /* ----------------------------------------------------------------- state */
   const input = { throttle: 0, brake: 0, steer: 0, handbrake: false };
-  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false };
+  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false, donut: 0 };
   derive();
   for (const w of wheels) { w.s = D.bump; w.sPrev = D.bump; w.sDraw = D.bump; }
 
@@ -202,6 +203,12 @@ export function createVehicle(physics, shape, o = {}) {
     state.brake += clamp(brakeIn - state.brake, -dt * 12, dt * 7);
     const demand = state.throttle, brake = state.brake;
     const hand = !!input.handbrake;
+    /* ---- donut: gas + handbrake + full steering at low speed → the car spins on the spot around its front wheels,
+       the rear wheels spinning and sliding (blends in / out over ~0.3 s; let go of the handbrake to drive off) */
+    const donutWanted = hand && tIn > 0.5 && Math.abs(input.steer) > 0.5 && !state.reversing && state.grounded >= 3
+      && Math.abs(vF) < (state.donut > 0.2 ? 14 : 9);
+    state.donut = clamp(state.donut + (donutWanted ? dt / 0.3 : -dt / 0.3), 0, 1);
+    const donut = state.donut;
 
     /* ---- steering: input rate (quick back to centre, slower at speed), lock shrinks with speed, then the
        automatic countersteer (GTA): when the rear slides past ~3°, the wheels turn into the slide */
@@ -214,7 +221,7 @@ export function createVehicle(physics, shape, o = {}) {
     let delta = state.steer * maxSteer;
     const beta = Math.abs(vF) > 3 ? Math.atan2(vL, Math.abs(vF)) : 0;
     const slide = beta - clamp(beta, -0.05, 0.05);
-    if (state.grounded >= 2) delta += P.assist * 0.8 * clamp(slide, -0.5, 0.5) * (hand ? 0.4 : 1) * Math.sign(vF || 1);
+    if (state.grounded >= 2) delta += P.assist * 0.8 * clamp(slide, -0.5, 0.5) * (hand ? 0.4 : 1) * (1 - donut) * Math.sign(vF || 1);
     delta = clamp(delta, -lock, lock);
     for (const w of wheels) {
       if (!steers(w)) { w.steer = 0; continue; }
@@ -264,6 +271,8 @@ export function createVehicle(physics, shape, o = {}) {
     /* clutch slipping at a launch: revs rise with the pedal until the wheels catch up */
     if (rpmWheels < D.launch && demand > 0.05) rpmTarget = Math.max(rpmWheels, D.idle + demand * (D.launch - D.idle));
     if (!grounded && demand > 0.05) rpmTarget = Math.max(rpmTarget, P.redline * (0.6 + 0.4 * demand));
+    /* in a donut the rear wheels spin freely: the revs rise with the pedal */
+    if (donut > 0) rpmTarget = Math.max(rpmTarget, D.idle + donut * demand * (P.redline * 0.78 - D.idle));
     state.rpm += (Math.min(rpmTarget, P.redline * 1.02) - state.rpm) * Math.min(1, dt * (state.shift > 0 ? 8 : 20));
     const x = state.rpm / P.redline;
     let torque = 0;
@@ -321,7 +330,8 @@ export function createVehicle(physics, shape, o = {}) {
       const vl = dot(vel, fg), vt = dot(vel, lg);
       w.vl = vl;
       const rear = w.axle === axleCount - 1 && axleCount > 1;
-      const locked = hand && rear;
+      const locked = hand && rear && donut < 0.5;
+      const donutRear = rear && donut > 0;
       /* grip: friction × load, less per kg as the load grows */
       const loadFactor = clamp(1 - 0.12 * (N / D.N0 - 1), 0.7, 1.12);
       const limit = P.grip * (locked ? P.handbrakeGrip : 1) * N * loadFactor;
@@ -332,12 +342,15 @@ export function createVehicle(physics, shape, o = {}) {
       const a = Math.abs(w.alpha);
       const curve = Math.sin(1.3 * Math.atan(20 * a));
       let fy = -Math.sign(w.alpha) * Math.min(limit * curve, Math.abs(vt) * kill * 0.5);
+      /* a spinning tyre has little grip sideways: in a donut the rear swings round */
+      if (donutRear) fy *= 1 - 0.8 * donut;
 
       /* along: cornering grip first; traction control / ABS use what is left (less so with less assist) */
       const left = Math.sqrt(Math.max(0, limit * limit - fy * fy)) + (1 - P.assist) * limit;
       let fx = 0, excess = 0;
       if (driven(w) && drivenGrounded.length) {
-        const want = driveForce / drivenGrounded.length;
+        /* in a donut the power goes into spinning the tyres, not into pushing the car along */
+        const want = (driveForce / drivenGrounded.length) * (1 - 0.9 * donut);
         fx += clamp(want, -left, left);
         excess = Math.max(0, Math.abs(want) - left) / (limit + 1);
       }
@@ -356,8 +369,8 @@ export function createVehicle(physics, shape, o = {}) {
         [w.contact[0] + U[0] * lift, w.contact[1] + U[1] * lift, w.contact[2] + U[2] * lift]);
 
       /* for drawing, sound and skid marks: rolls with the ground, locked by the handbrake, spins up on wheelspin */
-      const spinUp = driven(w) ? Math.min(1, excess * 2) : 0;
-      w.omega = locked ? 0 : vl / w.radius + spinUp * 25 * Math.sign(driveForce || 1);
+      const spinUp = Math.max(driven(w) ? Math.min(1, excess * 2) : 0, donutRear ? donut * demand : 0);
+      w.omega = locked ? 0 : vl / w.radius + spinUp * (donutRear ? 45 : 25) * Math.sign(driveForce || 1);
       w.spin += w.omega * dt;
       const speed = Math.hypot(vl, vt);
       const moving = clamp((speed - 1) / 4, 0, 1);
@@ -381,6 +394,22 @@ export function createVehicle(physics, shape, o = {}) {
       const torque2 = clamp(-over * D.I.yaw * 8 * P.assist * state.assist * (grounded / n), -cap, cap);
       rigidBody.addTorque(world, body, scale(tmp, U, torque2), true);
     }
+    /* ---- donut: turn about the front axle at ~2.3–3 rad/s (one turn in ~2.5 s). A yaw torque drives the rotation;
+       a force keeps the centre of mass on its circle round the front axle, so the car stays in its place */
+    if (donut > 0 && grounded >= 2) {
+      const dir = -Math.sign(input.steer);
+      const yawNow = dot(av, U);
+      const want = dir * (2.3 + 0.7 * demand) * donut;
+      const tq = clamp((want - yawNow) * D.I.yaw / 0.25, -P.mass * G * wheelbase * 0.6, P.mass * G * wheelbase * 0.6);
+      rigidBody.addTorque(world, body, scale(tmp, U, tq), true);
+      /* where the centre of mass should be going: round the front axle (behind it by dz), not forward */
+      const dz = rearZ + wheelbase - com[2];
+      const wantL = -yawNow * dz, wantF = 0;
+      const k = P.mass / 0.3 * donut, cap = P.mass * G * P.grip * 0.8;
+      const fF = clamp((wantF - vF) * k, -cap, cap), fL = clamp((wantL - vL) * k, -cap, cap);
+      addForce([F[0] * fF + R[0] * fL, F[1] * fF + R[1] * fL, F[2] * fF + R[2] * fL], null);
+    }
+
     /* ---- in the air: the nose follows the flight path and the roll levels (holding the gas in the air, as
        players do, must not tip it over) */
     if (grounded === 0 && P.assist > 0) {

@@ -63,6 +63,8 @@ if (!car) { /* no wheels found: see the console warning; fall back to CAR.create
 ## 5. Controls, camera, reading the car
 - `car.drive({ throttle, brake, steer, handbrake })`: throttle and brake 0..1, steer -1 (left) .. 1 (right). Holding
   brake at a standstill reverses. Missing fields keep their value. Touch: map buttons or a stick to the same numbers.
+  Donut: `throttle: 1` + `handbrake: true` + full `steer` below ~30 km/h spins the car on the spot round its front
+  wheels, rear tyres spinning and smoking; release the handbrake to drive off.
 - Camera: `cam.orbit(dxPixels, dyPixels)` on mouse / finger drag (it swings back behind after 1.5 s),
   `cam.zoom(1.1)` on the wheel, `cam.setMode("chase" | "far" | "hood")`, `cam.setCar(otherCar)`, `cam.reset()`.
 - Read: `car.speed` (km/h, negative reversing) · `car.engine` `{ rpm, gear (-1 = R), gears, redline, throttle,

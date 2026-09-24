@@ -658,7 +658,7 @@ function createVehicle(physics, shape, o = {}) {
     return 1 - 0.3 * Math.min(1, (x - 0.85) / 0.15);
   }
   const input = { throttle: 0, brake: 0, steer: 0, handbrake: false };
-  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false };
+  const state = { steer: 0, throttle: 0, brake: 0, speed: 0, reversing: false, grounded: 0, assist: 1, gear: 1, rpm: 800, shift: 0, impact: 0, limiter: false, donut: 0 };
   derive();
   for (const w of wheels) {
     w.s = D.bump;
@@ -715,6 +715,9 @@ function createVehicle(physics, shape, o = {}) {
     state.brake += clamp(brakeIn - state.brake, -dt * 12, dt * 7);
     const demand = state.throttle, brake = state.brake;
     const hand = !!input.handbrake;
+    const donutWanted = hand && tIn > 0.5 && Math.abs(input.steer) > 0.5 && !state.reversing && state.grounded >= 3 && Math.abs(vF) < (state.donut > 0.2 ? 14 : 9);
+    state.donut = clamp(state.donut + (donutWanted ? dt / 0.3 : -dt / 0.3), 0, 1);
+    const donut = state.donut;
     const target = clamp(-input.steer, -1, 1);
     const back = Math.abs(target) < Math.abs(state.steer) || Math.sign(target) !== Math.sign(state.steer);
     const rate = (back ? 7 : 5 / (1 + Math.abs(vF) / 25)) * P.steerSpeed;
@@ -724,7 +727,7 @@ function createVehicle(physics, shape, o = {}) {
     let delta = state.steer * maxSteer;
     const beta = Math.abs(vF) > 3 ? Math.atan2(vL, Math.abs(vF)) : 0;
     const slide = beta - clamp(beta, -0.05, 0.05);
-    if (state.grounded >= 2) delta += P.assist * 0.8 * clamp(slide, -0.5, 0.5) * (hand ? 0.4 : 1) * Math.sign(vF || 1);
+    if (state.grounded >= 2) delta += P.assist * 0.8 * clamp(slide, -0.5, 0.5) * (hand ? 0.4 : 1) * (1 - donut) * Math.sign(vF || 1);
     delta = clamp(delta, -lock, lock);
     for (const w of wheels) {
       if (!steers(w)) {
@@ -780,6 +783,7 @@ function createVehicle(physics, shape, o = {}) {
     let rpmTarget = Math.max(D.idle, rpmWheels);
     if (rpmWheels < D.launch && demand > 0.05) rpmTarget = Math.max(rpmWheels, D.idle + demand * (D.launch - D.idle));
     if (!grounded && demand > 0.05) rpmTarget = Math.max(rpmTarget, P.redline * (0.6 + 0.4 * demand));
+    if (donut > 0) rpmTarget = Math.max(rpmTarget, D.idle + donut * demand * (P.redline * 0.78 - D.idle));
     state.rpm += (Math.min(rpmTarget, P.redline * 1.02) - state.rpm) * Math.min(1, dt * (state.shift > 0 ? 8 : 20));
     const x = state.rpm / P.redline;
     let torque = 0;
@@ -843,7 +847,8 @@ function createVehicle(physics, shape, o = {}) {
       const vl = dot2(vel, fg), vt = dot2(vel, lg);
       w.vl = vl;
       const rear = w.axle === axleCount - 1 && axleCount > 1;
-      const locked = hand && rear;
+      const locked = hand && rear && donut < 0.5;
+      const donutRear = rear && donut > 0;
       const loadFactor = clamp(1 - 0.12 * (N / D.N0 - 1), 0.7, 1.12);
       const limit = P.grip * (locked ? P.handbrakeGrip : 1) * N * loadFactor;
       const alphaT = Math.atan2(vt, Math.abs(vl) + 0.5);
@@ -851,10 +856,11 @@ function createVehicle(physics, shape, o = {}) {
       const a = Math.abs(w.alpha);
       const curve = Math.sin(1.3 * Math.atan(20 * a));
       let fy = -Math.sign(w.alpha) * Math.min(limit * curve, Math.abs(vt) * kill * 0.5);
+      if (donutRear) fy *= 1 - 0.8 * donut;
       const left = Math.sqrt(Math.max(0, limit * limit - fy * fy)) + (1 - P.assist) * limit;
       let fx = 0, excess = 0;
       if (driven(w) && drivenGrounded.length) {
-        const want = driveForce / drivenGrounded.length;
+        const want = driveForce / drivenGrounded.length * (1 - 0.9 * donut);
         fx += clamp(want, -left, left);
         excess = Math.max(0, Math.abs(want) - left) / (limit + 1);
       }
@@ -873,8 +879,8 @@ function createVehicle(physics, shape, o = {}) {
         [fg[0] * fx + lg[0] * fy, fg[1] * fx + lg[1] * fy, fg[2] * fx + lg[2] * fy],
         [w.contact[0] + U[0] * lift, w.contact[1] + U[1] * lift, w.contact[2] + U[2] * lift]
       );
-      const spinUp = driven(w) ? Math.min(1, excess * 2) : 0;
-      w.omega = locked ? 0 : vl / w.radius + spinUp * 25 * Math.sign(driveForce || 1);
+      const spinUp = Math.max(driven(w) ? Math.min(1, excess * 2) : 0, donutRear ? donut * demand : 0);
+      w.omega = locked ? 0 : vl / w.radius + spinUp * (donutRear ? 45 : 25) * Math.sign(driveForce || 1);
       w.spin += w.omega * dt;
       const speed = Math.hypot(vl, vt);
       const moving = clamp((speed - 1) / 4, 0, 1);
@@ -893,6 +899,18 @@ function createVehicle(physics, shape, o = {}) {
       const cap = P.mass * G * wheelbase * 0.3;
       const torque2 = clamp(-over * D.I.yaw * 8 * P.assist * state.assist * (grounded / n), -cap, cap);
       rigidBody.addTorque(world, body, scale(tmp, U, torque2), true);
+    }
+    if (donut > 0 && grounded >= 2) {
+      const dir = -Math.sign(input.steer);
+      const yawNow = dot2(av, U);
+      const want = dir * (2.3 + 0.7 * demand) * donut;
+      const tq = clamp((want - yawNow) * D.I.yaw / 0.25, -P.mass * G * wheelbase * 0.6, P.mass * G * wheelbase * 0.6);
+      rigidBody.addTorque(world, body, scale(tmp, U, tq), true);
+      const dz = rearZ + wheelbase - com[2];
+      const wantL = -yawNow * dz, wantF = 0;
+      const k = P.mass / 0.3 * donut, cap = P.mass * G * P.grip * 0.8;
+      const fF = clamp((wantF - vF) * k, -cap, cap), fL = clamp((wantL - vL) * k, -cap, cap);
+      addForce([F[0] * fF + R[0] * fL, F[1] * fF + R[1] * fL, F[2] * fF + R[2] * fL], null);
     }
     if (grounded === 0 && P.assist > 0) {
       const sp2 = Math.hypot(bv[0], bv[1], bv[2]);
