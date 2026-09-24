@@ -1,5 +1,6 @@
 /* City Circuit race: you + 7 AI drivers, three car choices. Uses the car library's public API (CAR.create,
-   CAR.createCamera), the track (./track.js), race logic + AI (./race-ai.js), sound (./sound.js) and effects. */
+   CAR.createCamera), the track (./track.js), race logic + AI (./race-ai.js), sound (./sound.js for your car, the
+   built-in car/sound for the AI cars, quieter with distance) and effects. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -8,6 +9,7 @@ import { buildTrack } from './track.js';
 import { RACE_CARS, RIVALS } from './race-cars.js';
 import { createTracker, createDriver, standings, slipstream } from './race-ai.js';
 import { createCarSound } from './sound.js';
+import { createCarSound as createBuiltInSound } from 'car/sound';
 import { createEffects } from './effects.js';
 
 const $ = (id) => document.getElementById(id);
@@ -76,7 +78,7 @@ function tint(car, color) {
 
 function startRace() {
   $('menu').classList.remove('on'); $('results').classList.remove('on');
-  for (const e of field) e.car.remove();
+  for (const e of field) { e.car.remove(); if (e.sound) e.sound.dispose(); }
   field = [];
   fx.clear();
   const laps = Number($('laps').value) || 3, mySlot = Number($('slot').value) || 0;
@@ -94,6 +96,8 @@ function startRace() {
     if (!me) {
       tint(car, e.color);
       e.driver = createDriver(car, track, tracker, 0.9 + Math.random() * 0.09);
+      e.sound = createBuiltInSound(car, { engine: spec.synth, listener: camera, volume: 0.55, pops: 0.3, turbo: spec.turbo ? 0.4 : 0 });
+      e.sound.muted = sound.muted;
       ai++;
     } else player = e;
     field.push(e);
@@ -117,7 +121,7 @@ addEventListener('keydown', (e) => {
   keys.add(e.code);
   if (e.code === 'KeyR' && player && race && race.phase === 'racing') backOnTrack(player);
   if (e.code === 'KeyC' && cam) cam.setMode({ chase: 'far', far: 'hood', hood: 'chase' }[cam.mode]);
-  if (e.code === 'KeyM') sound.setMuted(!sound.muted);
+  if (e.code === 'KeyM') { sound.setMuted(!sound.muted); for (const f of field) if (f.sound) f.sound.muted = sound.muted; }
   if (e.code === 'Escape') { $('menu').classList.toggle('on'); }
   if (['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.code)) e.preventDefault();
 });
@@ -247,6 +251,7 @@ function frame(now) {
   }
   fx.update(field.map((e) => e.car), dt);
   if (player) sound.update(player.car);
+  for (const e of field) if (e.sound) e.sound.update();
   drawHud();
   renderer.render(scene, camera);
   requestAnimationFrame(frame);

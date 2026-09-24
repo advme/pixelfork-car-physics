@@ -1,4 +1,4 @@
-/* Pixelfork Car Physics v0.8.0 · needs three@0.186.0 and crashcat@0.0.5 from the import map · © 2026 Pixelfork, see LICENSE */
+/* Pixelfork Car Physics v0.9.0 · needs three@0.186.0 and crashcat@0.0.5 from the import map · © 2026 Pixelfork, see LICENSE */
 
 // src/engine-sound.js
 async function loadEngineSound(ctx, url, fetchFn = globalThis.fetch) {

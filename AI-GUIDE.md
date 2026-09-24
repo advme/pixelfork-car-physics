@@ -1,4 +1,4 @@
-# Pixelfork Car Physics — AI guide (pixelfork-car@0.8.0-A)
+# Pixelfork Car Physics — AI guide (pixelfork-car@0.9.0-A)
 
 **You never build a car. You create one and drive it.**
 Give it any car model (a GLB with the wheels modelled in) — or no model for a built-in low-poly car. The wheels are
@@ -8,7 +8,7 @@ Units: metres, seconds, km/h for speeds you read. A car at `yaw: 0` faces +z. `p
 
 ## 1. Load
 One three.js and one crashcat on the page, shared through an import map with the names `"three"`, `"crashcat"` and
-`"car"` (a game engine may write this map for you). Never bundle or load a second three.js.
+`"car"` (a game engine may write this map for you; `"car/sound"` for §7). Never bundle or load a second three.js.
 ```js
 import CAR from "car";
 ```
@@ -99,16 +99,20 @@ Presets: `"car"` (default: everyday AWD, 230 kW), `"sport"` (RWD, 420 kW, 290 km
 Arcade feel: `grip: 1.8, assist: 1`. Drifty: `drive: "rwd", assist: 0.3, handbrakeGrip: 0.3`. Monster truck:
 `preset: "offroad", travel: 0.55, stiffness: 0.9`. Kart: `mass: 600, steer: 30, stiffness: 2.5`.
 
-## 7. Sound (optional modules)
-The core makes no sound. Read `car.engine`, `car.skid` and `car.impact` for your own sounds, or add:
+## 7. Sound (optional module, no files)
+Map `"car/sound"` too. One call gives the car its whole sound, synthesised live: engine (pitch from the revs, tone from
+the throttle), gear changes and rev limiter, tyre squeal, road rumble, wind, bumps, crashes into walls, exhaust pops.
 ```js
-import { createEngineFx } from "car/engine-fx";          // exhaust pops & bangs + turbo, synthesised, no files
-const fx = createEngineFx(audioCtx, { pops: 1, turbo: 0.6, blowoff: 0.6 });   // turbo: 0 for no turbo
-fx.output.connect(audioCtx.destination);
-/* every frame: */ fx.update(car.engine);
+import { createCarSound } from "car/sound";
+const sound = createCarSound(car, { listener: camera });   // every car can have one; far cars are quieter
+/* every frame, after physics.sync(): */ sound.update();
 ```
-`"car/engine-sound"` plays recorded engine packs (`loadEngineSound(audioCtx, url)`); it loads audio files, so only use
-it where the game may load files.
+It starts by itself on the player's first key or tap (browsers block sound before that). Options (all live in
+`sound.options`): `engine` `"inline4"` (buzzy four) · `"inline6"` (smooth six) · `"v8"` (burbling) · `"v12"`
+(screaming) — default picked from the car's power; `volume` 0..2 (1); `pops` 0..1 (0.5); `turbo` 0..1 (0 = none);
+`tyres`, `crashes` 0..1 (1). `sound.muted = true` mutes. `car.remove()` → also `sound.dispose()`.
+Your own sounds instead? Read `car.engine`, `car.skid` and `car.impact`. Recorded engine packs: `"car/engine-sound"`
+(`loadEngineSound(audioCtx, url)`, loads audio files).
 
 ## 8. Several cars, races, AI
 - Every car is independent: make as many as you need, from one model or several (the demo races 8).

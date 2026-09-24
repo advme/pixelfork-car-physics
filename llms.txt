@@ -3,12 +3,13 @@
 
 - Use it (start here, ~140 lines, exact API with units and defaults): AI-GUIDE.md
 - Machine-readable: dist/registry.json (version, needs, import names, presets, tuning ranges, controls)
-- Types: dist/types.d.ts (modules "car", "car/engine-fx", "car/engine-sound")
+- Types: dist/types.d.ts (modules "car", "car/sound", "car/engine-fx", "car/engine-sound")
 - Load: an ES module, dist/car.module.js, through an import map that also maps "three" (0.186) and "crashcat" (0.0.5); it bundles neither
 - Smallest complete example: demo/minimal.html — CAR.createPhysics({ floor: 400 }); CAR.create({ scene, physics }); car.drive({ throttle, brake, steer }); physics.step(1/60); physics.sync(alpha)
 - Your own model: CAR.create({ scene, physics, model: gltf.scene }); check one with CAR.inspect(model); wrong front → forward: "-z"
 - In a game with its own crashcat world object ({ world, layers, step, sync }): pass it as physics (AI-GUIDE §2)
 - Camera: CAR.createCamera(camera, car) → cam.update(dt), cam.orbit(dx, dy), cam.zoom(f)
-- Optional sound: "car/engine-fx" (pops, bangs, turbo; no files), "car/engine-sound" (recorded engine packs; loads files)
+- Sound (optional, no files): import { createCarSound } from "car/sound"; const sound = createCarSound(car, { listener: camera }); then sound.update() every frame — engine, tyres, road, wind, bumps, crashes, pops, turbo
+- More sound: "car/engine-fx" (pops, bangs, turbo only), "car/engine-sound" (recorded engine packs; loads files)
 - Change the library: AGENTS.md
 - Sibling libraries: Pixelfork Ragdoll, Pixelfork VFX Library, Pixelfork SFX Library, Pixelfork PBR Library

@@ -35,6 +35,7 @@ renderer.render(scene, camera);
 | Import name | File | |
 |---|---|---|
 | `car` | `dist/car.module.js` | the library (≈ 57 KB, 18 KB gzipped) |
+| `car/sound` | `dist/car-sound.module.js` | optional: the car's whole sound, synthesised (no files) |
 | `car/engine-fx` | `dist/car-engine-fx.module.js` | optional: pops & bangs + turbo, synthesised |
 | `car/engine-sound` | `dist/car-engine-sound.module.js` | optional: recorded engine packs (loads audio files) |
 
@@ -63,6 +64,20 @@ What the physics does: tyre-shaped wheel probes (they roll up kerbs), soft-bump 
 tyres with a slip curve and relaxation length, engine with revs, torque curve, automatic gearbox and engine braking,
 traction control and ABS that keep cornering grip first, automatic countersteer, stability control that only steps in
 when the car slides, landing assist in the air. Cars run at 120 Hz inside the game's 60 Hz `physics.step`.
+
+## Built-in sound (optional, no files)
+
+```js
+import { createCarSound } from 'car/sound';
+const sound = createCarSound(car, { listener: camera, engine: 'v8' });   // 'inline4' | 'inline6' | 'v8' | 'v12'
+sound.update();   // every frame; starts by itself on the first key or tap
+```
+
+Engine (one oscillator at the camshaft frequency whose harmonics are the engine's firing orders, plus weaker uneven
+orders for the burble; soft clipping with the throttle, exhaust resonance, a low-pass opening with revs), gear
+changes and limiter, tyre squeal, road rumble, wind, suspension thumps, crashes (from sudden velocity changes that no
+braking could make), pops and optional turbo. Cars further from the listener are quieter and panned. The race demo's
+AI cars use it; the playground's engine menu has the four built-in engines next to the recorded ones.
 
 ## Real engine sound (optional)
 

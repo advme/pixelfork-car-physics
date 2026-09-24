@@ -1,4 +1,4 @@
-/* Types for Pixelfork Car Physics (import names "car", "car/engine-fx", "car/engine-sound").
+/* Types for Pixelfork Car Physics (import names "car", "car/sound", "car/engine-fx", "car/engine-sound").
    tools/build.mjs checks that these list what the code really has, and copies them to dist/types.d.ts. */
 
 declare module "car" {
@@ -207,6 +207,47 @@ declare module "car" {
   export const inspect: CarLibrary["inspect"];
   export const PRESETS: Record<PresetName, Required<Tuning>>;
   export const TUNING: CarLibrary["tuning"];
+}
+
+declare module "car/sound" {
+  import type { Object3D } from "three";
+  import type { Car } from "car";
+  /** engine character: a buzzy four, a smooth six, a burbling V8, a screaming V12 */
+  export type EngineName = "inline4" | "inline6" | "v8" | "v12";
+  export interface CarSoundOptions {
+    /** default: picked from the car's power, redline and mass */ engine?: EngineName;
+    /** 0..2 (1) */ volume?: number;
+    /** where the player hears from, usually the camera: further cars are quieter and panned */ listener?: Object3D;
+    /** exhaust pops & bangs 0..1 (0.5) */ pops?: number;
+    /** turbo whine + whoosh 0..1 (0 = no turbo) */ turbo?: number;
+    /** blow-off valve 0..1 (0.5 with a turbo) */ blowoff?: number;
+    /** tyre squeal 0..1 (1) */ tyres?: number;
+    /** crash sounds 0..1 (1) */ crashes?: number;
+    /** an audio context to use (default: one shared by every car sound) */ context?: BaseAudioContext;
+  }
+  export interface CarSound {
+    /** every frame, after physics.sync() */
+    update(): void;
+    /** start now, from a key or click handler (otherwise it starts on the first key or tap by itself) */
+    start(): void;
+    /** change live: engine, volume, pops, turbo, blowoff, tyres, crashes */
+    options: { engine: EngineName; volume: number; pops: number; turbo: number; blowoff: number; tyres: number; crashes: number };
+    setEngine(name: EngineName): void;
+    setListener(listener: Object3D | null): void;
+    muted: boolean;
+    readonly context: BaseAudioContext | null;
+    /** this car's sound after the first update (connect an analyser or recorder) */
+    readonly output: GainNode | null;
+    /** how many crash and thump sounds have played */
+    stats: { crashes: number; thumps: number };
+    /** 0..1 turbo boost */
+    readonly boost: number;
+    /** stop and free it (with car.remove()) */
+    dispose(): void;
+  }
+  export const ENGINES: Record<EngineName, { cylinders: number; uneven: number; resonance: number; bright: number }>;
+  /** the car's sound, synthesised (no files): engine, tyres, road, wind, bumps, crashes, optional pops and turbo */
+  export function createCarSound(car: Car, options?: CarSoundOptions): CarSound;
 }
 
 declare module "car/engine-fx" {

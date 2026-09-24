@@ -6,9 +6,10 @@
  *      numbers, the presets) and that the version in src/index.js is package.json's
  *   2. bundles (ES modules; three and crashcat stay external = the game's import map):
  *        src/index.js        → dist/car.module.js              import name "car"
+ *        src/sound.js        → dist/car-sound.module.js        import name "car/sound"        (optional: built-in sound, no files)
  *        src/engine-fx.js    → dist/car-engine-fx.module.js    import name "car/engine-fx"    (optional)
  *        src/engine-sound.js → dist/car-engine-sound.module.js import name "car/engine-sound" (optional, loads files)
- *   3. refuses code a strict game host would refuse (eval, new Function, network, workers) in the core and engine-fx
+ *   3. refuses code a strict game host would refuse (eval, new Function, network, workers) in all but engine-sound
  *   4. writes dist/types.d.ts and dist/registry.json (version, needs, modules, presets, tuning ranges)
  *   5. stamps the version into AI-GUIDE.md and warns when the guide gets long (game-writing AIs read it in every prompt)
  */
@@ -27,6 +28,7 @@ const EXTERNAL = ['three', 'three/*', 'crashcat', 'crashcat/*'];
 const GUIDE_MAX_LINES = 180;
 const MODULES = [
   { name: 'car', src: 'src/index.js', out: 'car.module.js', strict: true },
+  { name: 'car/sound', src: 'src/sound.js', out: 'car-sound.module.js', strict: true },
   { name: 'car/engine-fx', src: 'src/engine-fx.js', out: 'car-engine-fx.module.js', strict: true },
   { name: 'car/engine-sound', src: 'src/engine-sound.js', out: 'car-engine-sound.module.js', strict: false },
 ];
@@ -70,6 +72,19 @@ if (CAR.version !== VERSION) fail(`src/index.js VERSION is ${CAR.version} but pa
   for (const k of tuning) if (k !== 'drive' && !(k in CAR.tuning)) fail(`interface Tuning lists "${k}" but CAR.tuning has no such number`);
   const presets = types.match(/export type PresetName =([^;]+);/)?.[1].match(/"([^"]+)"/g)?.map((s) => s.slice(1, -1)).sort().join(',');
   if (presets !== [...CAR.presets].sort().join(',')) fail('src/types.d.ts PresetName does not match CAR.presets');
+  {
+    const { createCarSound, ENGINES } = await import(pathToFileURL(at('src/sound.js')).href);
+    const warn = console.warn; console.warn = () => {};
+    const car = CAR.create({ physics: CAR.createPhysics({ floor: 50 }) });
+    console.warn = warn;
+    const have = Object.keys(createCarSound(car));
+    const listed = block('CarSound');
+    for (const k of have) if (!listed.includes(k)) fail(`the car sound has "${k}" but src/types.d.ts interface CarSound does not list it`);
+    for (const k of listed) if (!have.includes(k)) fail(`interface CarSound lists "${k}" but the car sound has no such thing`);
+    const names = types.match(/export type EngineName =([^;]+);/)?.[1].match(/"([^"]+)"/g)?.map((x) => x.slice(1, -1)).sort().join(',');
+    if (names !== Object.keys(ENGINES).sort().join(',')) fail('src/types.d.ts EngineName does not match ENGINES in src/sound.js');
+    car.remove();
+  }
   const fxKeys = block('EngineFx');
   for (const k of ['output', 'update', 'options', 'stats', 'boost', 'dispose']) if (!fxKeys.includes(k)) fail(`interface EngineFx is missing "${k}"`);
 }
@@ -109,7 +124,7 @@ const registry = {
   needs: { three: THREE, crashcat: CRASHCAT },
   module: 'car.module.js',
   importMap: Object.fromEntries(MODULES.map((m) => [m.name, m.out])),
-  optional: { 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)' },
+  optional: { 'car/sound': 'built-in car sound: engine, tyres, road, wind, bumps, crashes, pops, turbo; synthesised (no files)', 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)' },
   presets: Object.fromEntries(Object.entries(lib.PRESETS)),
   tuning: Object.fromEntries(Object.entries(CAR.tuning).map(([k, [min, max, unit]]) => [k, { min, max, unit }])),
   controls: { throttle: '0..1', brake: '0..1 (held at a standstill: reverse)', steer: '-1 left .. 1 right', handbrake: 'boolean' },

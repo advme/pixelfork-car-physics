@@ -1,4 +1,4 @@
-/* Pixelfork Car Physics v0.8.0 · needs three@0.186.0 and crashcat@0.0.5 from the import map · © 2026 Pixelfork, see LICENSE */
+/* Pixelfork Car Physics v0.9.0 · needs three@0.186.0 and crashcat@0.0.5 from the import map · © 2026 Pixelfork, see LICENSE */
 
 // src/detect.js
 var RAW = { UP: 1 };
@@ -1253,7 +1253,7 @@ function createDefaultCar(o = {}) {
 
 // src/index.js
 import { updateWorld as updateWorld2 } from "crashcat";
-var VERSION = "0.8.0";
+var VERSION = "0.9.0";
 var HOOK = /* @__PURE__ */ Symbol.for("car.hook");
 var warned = /* @__PURE__ */ new Set();
 function warnOnce(msg) {

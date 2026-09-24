@@ -204,6 +204,7 @@ const CAM_MODES = ['chase', 'far', 'hood'];
 const cycleCam = () => { if (!cam) return; cam.setMode(CAM_MODES[(CAM_MODES.indexOf(cam.mode) + 1) % 3]); $('cam').textContent = `Camera: ${cam.mode}`; };
 const toggleMute = () => { sound.start(); sound.setMuted(!sound.muted); $('mute').setAttribute('aria-pressed', sound.muted); $('mute').textContent = sound.muted ? 'Sound: off' : 'Sound'; };
 /* every recorded engine (assets/sounds/engines/index.json); "by preset" follows the preset */
+for (const [k, t] of [['v8', 'V8'], ['inline6', 'straight-6'], ['inline4', '4-cylinder'], ['v12', 'V12']]) $('engine').add(new Option(`built-in (no files): ${t}`, `synth:${k}`));
 fetch('/assets/sounds/engines/index.json').then((r) => r.json()).then((list) => {
   for (const e of list) $('engine').add(new Option(`engine: ${e.title}`, e.name));
 }).catch(() => {});

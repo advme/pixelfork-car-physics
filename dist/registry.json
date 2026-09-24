@@ -1,6 +1,6 @@
 {
   "name": "pixelfork-car",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "needs": {
     "three": "0.186.0",
     "crashcat": "0.0.5"
@@ -8,10 +8,12 @@
   "module": "car.module.js",
   "importMap": {
     "car": "car.module.js",
+    "car/sound": "car-sound.module.js",
     "car/engine-fx": "car-engine-fx.module.js",
     "car/engine-sound": "car-engine-sound.module.js"
   },
   "optional": {
+    "car/sound": "built-in car sound: engine, tyres, road, wind, bumps, crashes, pops, turbo; synthesised (no files)",
     "car/engine-fx": "exhaust pops & bangs + turbo, synthesised (no files)",
     "car/engine-sound": "recorded engine sound packs (loads audio files)"
   },

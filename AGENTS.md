@@ -23,11 +23,11 @@ make it easier to use correctly on the first try.
 ## 3. Where things are
 ```
 src/index.js       THE PUBLIC API (default export CAR): create, createPhysics, createCamera, inspect, presets, tuning
-src/types.d.ts     the types ("car", "car/engine-fx", "car/engine-sound"); the build checks them against the code
+src/types.d.ts     the types ("car", "car/sound", "car/engine-fx", "car/engine-sound"); the build checks them against the code
 src/default-car.js the built-in low-poly car (no model given); goes through the same wheel detection
 AI-GUIDE.md        what game-writing AIs read (keep ≤ 180 lines; the build checks every tuning number is in it)
 llms.txt           one-screen summary for LLMs
-dist/              BUILT, committed: car.module.js, car-engine-fx.module.js, car-engine-sound.module.js, types.d.ts,
+dist/              BUILT, committed: car.module.js, car-sound.module.js, car-engine-fx.module.js, car-engine-sound.module.js, types.d.ts,
                    registry.json (npm run build; never edit by hand)
 tools/build.mjs    the build: types vs code, bundles, refuses eval / network / workers in the core, registry, guide
 tools/test-host.mjs  the library inside a game's own crashcat world (part of npm test): the game's step runs once
@@ -38,11 +38,13 @@ src/detect.js      wheel detection from shape alone (three.js only for the scene
 src/rig.js         splits the model into body / wheels, builds pivots (mount → steer → spin); never changes the model
 src/vehicle.js     raycast vehicle on crashcat, no three.js: suspension, tyres, engine, brakes, steering; PRESETS
 src/physics.js     createPhysics(): a ready crashcat world for games without one
+src/sound.js       OPTIONAL "car/sound": the car's whole sound synthesised (engine by firing orders, tyres, road, wind,
+                   thumps, crashes, pops/turbo via engine-fx), distance + pan from a listener, one compressor per context
 src/engine-fx.js   OPTIONAL: exhaust pops & bangs + turbo (whine, whoosh, blow-off / flutter), synthesised
 src/engine-sound.js OPTIONAL (not in the core: loads files): real engine sound from recorded packs
 src/camera.js      createCamera(): GTA-style chase camera (spring follow, slide look, FOV at speed, shake, orbit)
 demo/playground.*  the 3D test scene (import map like a game's); window.playground for automated checks
-demo/sound.js      Web Audio engine / tyre / wind / thump sounds from car.engine, car.skid, car.impact
+demo/sound.js      the demos' sound for your car: recorded engine packs + engine-fx, or car/sound for "synth:<engine>"
 demo/effects.js    skid marks + tyre smoke from the wheels' contact / skid
 demo/race.*        the race page (menu, lights, HUD, minimap, results); demo/track.js the City Circuit (layout →
                    centreline, walls (physics), road, kerbs, scenery, racing line); demo/race-ai.js lap tracker, AI
