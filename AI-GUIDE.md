@@ -1,4 +1,4 @@
-# Pixelfork Car Physics — AI guide (pixelfork-car@0.9.0-A)
+# Pixelfork Car Physics — AI guide (pixelfork-car@0.9.1-A)
 
 **You never build a car. You create one and drive it.**
 Give it any car model (a GLB with the wheels modelled in) — or no model for a built-in low-poly car. The wheels are
