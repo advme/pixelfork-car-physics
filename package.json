@@ -1,0 +1,26 @@
+{
+  "name": "pixelfork-car",
+  "version": "0.8.0",
+  "description": "Drop in any car model (GLB) — or none for the built-in car: the wheels are found automatically and it drives with full raycast-vehicle physics. For three.js + crashcat games.",
+  "type": "module",
+  "private": true,
+  "license": "SEE LICENSE IN LICENSE",
+  "scripts": {
+    "build": "node tools/build.mjs",
+    "test": "node tools/test-car.mjs && node tools/test-host.mjs",
+    "test:race": "node tools/test-race.mjs 3",
+    "test:compressed": "node tools/test-compressed.mjs",
+    "detect": "node tools/detect-report.mjs",
+    "serve": "node tools/serve.mjs 8770"
+  },
+  "peerDependencies": {
+    "crashcat": "0.0.5",
+    "three": "0.186.0"
+  },
+  "devDependencies": {
+    "crashcat": "0.0.5",
+    "esbuild": "^0.28.2",
+    "gltfpack": "^1.2.0",
+    "three": "0.186.0"
+  }
+}

@@ -1,0 +1,93 @@
+[
+ {
+  "name": "v6",
+  "title": "60° V6",
+  "cylinders": 6,
+  "redline": 5500,
+  "file": "v6.json"
+ },
+ {
+  "name": "i5",
+  "title": "Audi 2.3 inline-5",
+  "cylinders": 5,
+  "redline": 6000,
+  "file": "i5.json"
+ },
+ {
+  "name": "m52",
+  "title": "BMW M52B28 straight-6",
+  "cylinders": 6,
+  "redline": 7000,
+  "file": "m52.json"
+ },
+ {
+  "name": "c454",
+  "title": "Chevrolet 454 V8 (truck)",
+  "cylinders": 8,
+  "redline": 5500,
+  "file": "c454.json"
+ },
+ {
+  "name": "f1v12",
+  "title": "Ferrari 412 T2 V12 (F1)",
+  "cylinders": 12,
+  "redline": 18000,
+  "file": "f1v12.json"
+ },
+ {
+  "name": "f136",
+  "title": "Ferrari F136 V8",
+  "cylinders": 8,
+  "redline": 9000,
+  "file": "f136.json"
+ },
+ {
+  "name": "ls",
+  "title": "GM LS V8",
+  "cylinders": 8,
+  "redline": 6500,
+  "file": "ls.json"
+ },
+ {
+  "name": "harley",
+  "title": "Harley-Davidson Shovelhead V-twin (bike)",
+  "cylinders": 2,
+  "redline": 5000,
+  "file": "harley.json"
+ },
+ {
+  "name": "vtec",
+  "title": "Honda B18C5 VTEC 4-cylinder",
+  "cylinders": 4,
+  "redline": 8400,
+  "file": "vtec.json"
+ },
+ {
+  "name": "lfa",
+  "title": "Lexus LFA 1LR-GUE V10",
+  "cylinders": 10,
+  "redline": 9000,
+  "file": "lfa.json"
+ },
+ {
+  "name": "ej25",
+  "title": "Subaru EJ25 boxer-4 (unequal headers)",
+  "cylinders": 4,
+  "redline": 6500,
+  "file": "ej25.json"
+ },
+ {
+  "name": "busa",
+  "title": "Suzuki Hayabusa inline-4 (bike)",
+  "cylinders": 4,
+  "redline": 11000,
+  "file": "busa.json"
+ },
+ {
+  "name": "2jz",
+  "title": "Toyota 2JZ straight-6",
+  "cylinders": 6,
+  "redline": 6000,
+  "file": "2jz.json"
+ }
+]

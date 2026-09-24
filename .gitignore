@@ -1,0 +1,10 @@
+node_modules/
+_local/
+STATUS.md
+CHANGELOG.md
+CLAUDE.md
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log

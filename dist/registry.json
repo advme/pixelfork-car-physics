@@ -1,0 +1,184 @@
+{
+  "name": "pixelfork-car",
+  "version": "0.8.0",
+  "needs": {
+    "three": "0.186.0",
+    "crashcat": "0.0.5"
+  },
+  "module": "car.module.js",
+  "importMap": {
+    "car": "car.module.js",
+    "car/engine-fx": "car-engine-fx.module.js",
+    "car/engine-sound": "car-engine-sound.module.js"
+  },
+  "optional": {
+    "car/engine-fx": "exhaust pops & bangs + turbo, synthesised (no files)",
+    "car/engine-sound": "recorded engine sound packs (loads audio files)"
+  },
+  "presets": {
+    "car": {
+      "mass": 1400,
+      "power": 230,
+      "topSpeed": 210,
+      "drive": "awd",
+      "grip": 1.3,
+      "steer": 36,
+      "steerSpeed": 1,
+      "stiffness": 1.3,
+      "damping": 0.72,
+      "antiRoll": 0.45,
+      "travel": 0.26,
+      "engineBrake": 0.8,
+      "redline": 6800,
+      "gears": 6,
+      "shiftTime": 0.2,
+      "assist": 1,
+      "handbrakeGrip": 0.5
+    },
+    "sport": {
+      "mass": 1450,
+      "power": 420,
+      "topSpeed": 290,
+      "drive": "rwd",
+      "grip": 1.45,
+      "steer": 34,
+      "steerSpeed": 1.1,
+      "stiffness": 1.55,
+      "damping": 0.75,
+      "antiRoll": 0.6,
+      "travel": 0.24,
+      "engineBrake": 0.7,
+      "redline": 8000,
+      "gears": 7,
+      "shiftTime": 0.12,
+      "assist": 1,
+      "handbrakeGrip": 0.45
+    },
+    "classic": {
+      "mass": 1100,
+      "power": 100,
+      "topSpeed": 160,
+      "drive": "rwd",
+      "grip": 1.1,
+      "steer": 38,
+      "steerSpeed": 0.9,
+      "stiffness": 1.1,
+      "damping": 0.78,
+      "antiRoll": 0.35,
+      "travel": 0.28,
+      "engineBrake": 1,
+      "redline": 6000,
+      "gears": 4,
+      "shiftTime": 0.35,
+      "assist": 1,
+      "handbrakeGrip": 0.5
+    },
+    "offroad": {
+      "mass": 2100,
+      "power": 290,
+      "topSpeed": 175,
+      "drive": "awd",
+      "grip": 1.2,
+      "steer": 36,
+      "steerSpeed": 0.9,
+      "stiffness": 1,
+      "damping": 0.72,
+      "antiRoll": 0.55,
+      "travel": 0.4,
+      "engineBrake": 1.1,
+      "redline": 5500,
+      "gears": 5,
+      "shiftTime": 0.3,
+      "assist": 1,
+      "handbrakeGrip": 0.55
+    }
+  },
+  "tuning": {
+    "mass": {
+      "min": 500,
+      "max": 5000,
+      "unit": "kg"
+    },
+    "power": {
+      "min": 20,
+      "max": 1200,
+      "unit": "kW"
+    },
+    "topSpeed": {
+      "min": 60,
+      "max": 420,
+      "unit": "km/h"
+    },
+    "grip": {
+      "min": 0.4,
+      "max": 3,
+      "unit": "tyre friction"
+    },
+    "steer": {
+      "min": 10,
+      "max": 55,
+      "unit": "° full lock at a standstill"
+    },
+    "steerSpeed": {
+      "min": 0.3,
+      "max": 3,
+      "unit": "how fast the wheel turns"
+    },
+    "stiffness": {
+      "min": 0.5,
+      "max": 3.5,
+      "unit": "Hz spring"
+    },
+    "damping": {
+      "min": 0.2,
+      "max": 1.6,
+      "unit": "× critical"
+    },
+    "antiRoll": {
+      "min": 0,
+      "max": 2,
+      "unit": "anti-roll bars"
+    },
+    "travel": {
+      "min": 0.08,
+      "max": 0.6,
+      "unit": "m suspension travel"
+    },
+    "engineBrake": {
+      "min": 0,
+      "max": 3,
+      "unit": "slowing when you lift"
+    },
+    "redline": {
+      "min": 3000,
+      "max": 11000,
+      "unit": "rpm"
+    },
+    "gears": {
+      "min": 1,
+      "max": 9,
+      "unit": "forward gears"
+    },
+    "shiftTime": {
+      "min": 0.02,
+      "max": 1,
+      "unit": "s per gear change"
+    },
+    "assist": {
+      "min": 0,
+      "max": 1,
+      "unit": "traction + stability help"
+    },
+    "handbrakeGrip": {
+      "min": 0.1,
+      "max": 1,
+      "unit": "rear grip with the handbrake"
+    }
+  },
+  "controls": {
+    "throttle": "0..1",
+    "brake": "0..1 (held at a standstill: reverse)",
+    "steer": "-1 left .. 1 right",
+    "handbrake": "boolean"
+  }
+}

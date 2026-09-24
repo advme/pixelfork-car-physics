@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<title>Car Playground</title>
+<link rel="icon" href="data:,">
+<!-- The import map names a three.js + crashcat game uses, plus "car". Here they point at node_modules (the pinned
+     versions) and src/. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "three/addons/": "/node_modules/three/examples/jsm/",
+    "crashcat": "/node_modules/crashcat/dist/index.js",
+    "car": "/src/index.js",
+    "car/engine-sound": "/src/engine-sound.js",
+    "car/engine-fx": "/src/engine-fx.js"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #1b1d24; font: 13px/1.4 system-ui, sans-serif; color: #e8e9ee;
+    overscroll-behavior: none; -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: grab }
+  #game.drag { cursor: grabbing }
+  #panel { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none }
+  #panel > * { pointer-events: auto }
+  button, select { font: inherit; font-weight: 600; color: #fff; background: #3a3f4d; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer }
+  button:hover, select:hover { background: #4a5061 }
+  button[aria-pressed="true"] { background: #ff7a3d }
+  #report { position: fixed; left: 12px; top: 64px; max-width: min(420px, calc(100% - 24px)); background: #000a; border-radius: 10px; padding: 8px 12px; white-space: pre-wrap; font: 12px/1.45 ui-monospace, monospace; display: none }
+  #report.on { display: block }
+  #hud { position: fixed; right: 16px; bottom: 16px; background: #000a; border-radius: 14px; padding: 10px 14px 12px; min-width: 170px; pointer-events: none; font-variant-numeric: tabular-nums }
+  #hud .row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px }
+  #spd { font: 800 40px/1 system-ui } #spd small { font-size: 12px; font-weight: 600; opacity: .7; margin-left: 3px }
+  #gear { font: 800 30px/1 system-ui; color: #ffb38c }
+  #rpm { margin-top: 8px; height: 8px; border-radius: 4px; background: #ffffff22; overflow: hidden; position: relative }
+  #rpm i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #6fd0ff, #ffd24d 75%, #ff4d4d); width: 0 }
+  #eng { margin-top: 6px; font-size: 11px; opacity: .7; white-space: nowrap }
+  #rpm b { position: absolute; top: 0; bottom: 0; left: 88%; right: 0; background: #ff4d4d55 }
+  #tip { position: fixed; left: 12px; bottom: 12px; background: #0008; border-radius: 8px; padding: 6px 10px; pointer-events: none; max-width: calc(100% - 230px) }
+  #credit { position: fixed; left: 12px; bottom: 44px; background: #0008; border-radius: 8px; padding: 4px 10px; font-size: 11px }
+  #credit a { color: #ffb38c }
+  #tune { position: fixed; top: 60px; right: 12px; bottom: 150px; width: 290px; overflow-y: auto; background: #111319ee; border-radius: 12px; padding: 10px 12px; display: none; font-size: 12px }
+  #tune.on { display: block }
+  #tune h3 { margin: 10px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: #ffb38c }
+  #tune label { display: grid; grid-template-columns: 1fr auto; gap: 0 8px; margin: 6px 0 }
+  #tune label span { opacity: .75 } #tune label output { font-variant-numeric: tabular-nums }
+  #tune input[type=range] { grid-column: 1 / 3; width: 100%; accent-color: #ff7a3d }
+  #tune .btns { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap }
+  #tune .btns button { padding: 6px 10px; font-size: 12px }
+  #drop { position: fixed; inset: 0; display: none; place-items: center; background: #ff7a3d33; border: 3px dashed #ff7a3d; font: 700 22px system-ui; pointer-events: none }
+  #drop.on { display: grid }
+  #msg { position: fixed; left: 50%; top: 40%; transform: translate(-50%, -50%); background: #000c; border-radius: 12px; padding: 14px 18px; max-width: 80%; display: none; text-align: center }
+  #msg.on { display: block }
+  #touch { position: fixed; inset: auto 0 0 0; height: 150px; display: none; pointer-events: none }
+  #touch.on { display: block }
+  #touch button { position: absolute; bottom: 20px; width: 76px; height: 76px; border-radius: 50%; background: #fff2; font-size: 26px; pointer-events: auto; touch-action: none }
+  #touch .l { left: 16px } #touch .r { left: 104px } #touch .b { right: 104px } #touch .g { right: 16px } #touch .h { right: 60px; bottom: 104px; width: 60px; height: 60px; font-size: 13px }
+  @media (max-width: 700px) { #tip, #credit { display: none } #tune { left: 12px; width: auto; bottom: 170px } #hud { bottom: 170px } }
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="panel">
+  <select id="model" title="Car model"></select>
+  <a href="./race.html"><button type="button" title="8-car race on the City Circuit">🏁 Race</button></a>
+  <button id="open" title="Load your own .glb (or drop it on the page)">Load GLB…</button>
+  <select id="preset" title="How it drives"></select>
+  <button id="flip" title="The front is the other end">Flip front</button>
+  <button id="tuneBtn" aria-pressed="false" title="Tune the handling live (T)">Tune</button>
+  <button id="cam" title="Camera: chase / far / hood (C)">Camera: chase</button>
+  <select id="engine" title="Engine sound (recorded from Engine Simulator)"><option value="">engine: by preset</option></select>
+  <button id="pops" aria-pressed="true" title="Exhaust pops and bangs when you lift off (P)">Pops</button>
+  <button id="turbo" aria-pressed="true" title="Turbo: blow-off / flutter / off (O)">Turbo: blow-off</button>
+  <button id="mute" aria-pressed="false" title="Sound on / off (M)">Sound</button>
+  <button id="debug" aria-pressed="false" title="Suspension rays, contacts, wheel colours (B)">Debug</button>
+  <button id="info" aria-pressed="false" title="What was found in the model (I)">Report</button>
+</div>
+<pre id="report"></pre>
+<div id="tune"></div>
+<div id="hud"><div class="row"><div id="spd">0<small>km/h</small></div><div id="gear">1</div></div><div id="rpm"><b></b><i></i></div><div id="eng">click or press a key for sound</div></div>
+<div id="credit"></div>
+<div id="tip">W/↑ gas · S/↓ brake, reverse · A D steer · Space handbrake · R reset · drag mouse: look around · wheel: zoom · C camera · T tune · P pops · O turbo</div>
+<div id="drop">Drop a car .glb</div>
+<div id="msg"></div>
+<div id="touch"><button class="l">◀</button><button class="r">▶</button><button class="h">HB</button><button class="b">▼</button><button class="g">▲</button></div>
+<input id="file" type="file" accept=".glb,model/gltf-binary" hidden>
+<script type="module" src="./playground.js"></script>
+</body>
+</html>

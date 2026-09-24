@@ -1,0 +1,184 @@
+{
+ "name": "harley",
+ "title": "Harley-Davidson Shovelhead V-twin (bike)",
+ "engine": "Harley Davidson Shovelhead",
+ "cylinders": 2,
+ "redline": 5000,
+ "idle": 800,
+ "pad": 0.1,
+ "layers": {
+  "on": "full throttle",
+  "off": "throttle shut (overrun)"
+ },
+ "source": "Engine Simulator (AngeTheGreat, MIT) script engines/atg-video-1/03_harley_davidson_shovelhead.mr, held at each rpm on its dynamometer",
+ "samples": [
+  {
+   "rpm": 800,
+   "layer": "on",
+   "file": "800_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0261
+  },
+  {
+   "rpm": 800,
+   "layer": "off",
+   "file": "800_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0019
+  },
+  {
+   "rpm": 950,
+   "layer": "on",
+   "file": "950_on.mp3",
+   "loop": 1.263152,
+   "rms": 0.0405
+  },
+  {
+   "rpm": 950,
+   "layer": "off",
+   "file": "950_off.mp3",
+   "loop": 1.263152,
+   "rms": 0.0033
+  },
+  {
+   "rpm": 1100,
+   "layer": "on",
+   "file": "1100_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0568
+  },
+  {
+   "rpm": 1100,
+   "layer": "off",
+   "file": "1100_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0049
+  },
+  {
+   "rpm": 1300,
+   "layer": "on",
+   "file": "1300_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0711
+  },
+  {
+   "rpm": 1300,
+   "layer": "off",
+   "file": "1300_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0073
+  },
+  {
+   "rpm": 1550,
+   "layer": "on",
+   "file": "1550_on.mp3",
+   "loop": 1.161293,
+   "rms": 0.0925
+  },
+  {
+   "rpm": 1550,
+   "layer": "off",
+   "file": "1550_off.mp3",
+   "loop": 1.161293,
+   "rms": 0.0124
+  },
+  {
+   "rpm": 1850,
+   "layer": "on",
+   "file": "1850_on.mp3",
+   "loop": 1.232426,
+   "rms": 0.1192
+  },
+  {
+   "rpm": 1850,
+   "layer": "off",
+   "file": "1850_off.mp3",
+   "loop": 1.232426,
+   "rms": 0.0178
+  },
+  {
+   "rpm": 2200,
+   "layer": "on",
+   "file": "2200_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1385
+  },
+  {
+   "rpm": 2200,
+   "layer": "off",
+   "file": "2200_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0238
+  },
+  {
+   "rpm": 2600,
+   "layer": "on",
+   "file": "2600_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1674
+  },
+  {
+   "rpm": 2600,
+   "layer": "off",
+   "file": "2600_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0343
+  },
+  {
+   "rpm": 3050,
+   "layer": "on",
+   "file": "3050_on.mp3",
+   "loop": 1.180317,
+   "rms": 0.1908
+  },
+  {
+   "rpm": 3050,
+   "layer": "off",
+   "file": "3050_off.mp3",
+   "loop": 1.180317,
+   "rms": 0.0451
+  },
+  {
+   "rpm": 3600,
+   "layer": "on",
+   "file": "3600_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1717
+  },
+  {
+   "rpm": 3600,
+   "layer": "off",
+   "file": "3600_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0496
+  },
+  {
+   "rpm": 4250,
+   "layer": "on",
+   "file": "4250_on.mp3",
+   "loop": 1.214127,
+   "rms": 0.2079
+  },
+  {
+   "rpm": 4250,
+   "layer": "off",
+   "file": "4250_off.mp3",
+   "loop": 1.214127,
+   "rms": 0.0756
+  },
+  {
+   "rpm": 5000,
+   "layer": "on",
+   "file": "5000_on.mp3",
+   "loop": 1.2,
+   "rms": 0.2769
+  },
+  {
+   "rpm": 5000,
+   "layer": "off",
+   "file": "5000_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0952
+  }
+ ]
+}

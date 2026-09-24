@@ -1,0 +1,198 @@
+{
+ "name": "ej25",
+ "title": "Subaru EJ25 boxer-4 (unequal headers)",
+ "engine": "Subaru EJ25",
+ "cylinders": 4,
+ "redline": 6500,
+ "idle": 900,
+ "pad": 0.1,
+ "layers": {
+  "on": "full throttle",
+  "off": "throttle shut (overrun)"
+ },
+ "source": "Engine Simulator (AngeTheGreat, MIT) script engines/atg-video-2/02_subaru_ej25_uh.mr, held at each rpm on its dynamometer",
+ "samples": [
+  {
+   "rpm": 900,
+   "layer": "on",
+   "file": "900_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0058
+  },
+  {
+   "rpm": 900,
+   "layer": "off",
+   "file": "900_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0005
+  },
+  {
+   "rpm": 1050,
+   "layer": "on",
+   "file": "1050_on.mp3",
+   "loop": 1.257143,
+   "rms": 0.011
+  },
+  {
+   "rpm": 1050,
+   "layer": "off",
+   "file": "1050_off.mp3",
+   "loop": 1.257143,
+   "rms": 0.0012
+  },
+  {
+   "rpm": 1250,
+   "layer": "on",
+   "file": "1250_on.mp3",
+   "loop": 1.248005,
+   "rms": 0.0281
+  },
+  {
+   "rpm": 1250,
+   "layer": "off",
+   "file": "1250_off.mp3",
+   "loop": 1.248005,
+   "rms": 0.0033
+  },
+  {
+   "rpm": 1500,
+   "layer": "on",
+   "file": "1500_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0762
+  },
+  {
+   "rpm": 1500,
+   "layer": "off",
+   "file": "1500_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0062
+  },
+  {
+   "rpm": 1750,
+   "layer": "on",
+   "file": "1750_on.mp3",
+   "loop": 1.234286,
+   "rms": 0.1174
+  },
+  {
+   "rpm": 1750,
+   "layer": "off",
+   "file": "1750_off.mp3",
+   "loop": 1.234286,
+   "rms": 0.0125
+  },
+  {
+   "rpm": 2050,
+   "layer": "on",
+   "file": "2050_on.mp3",
+   "loop": 1.170726,
+   "rms": 0.1358
+  },
+  {
+   "rpm": 2050,
+   "layer": "off",
+   "file": "2050_off.mp3",
+   "loop": 1.170726,
+   "rms": 0.0139
+  },
+  {
+   "rpm": 2400,
+   "layer": "on",
+   "file": "2400_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1423
+  },
+  {
+   "rpm": 2400,
+   "layer": "off",
+   "file": "2400_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0259
+  },
+  {
+   "rpm": 2850,
+   "layer": "on",
+   "file": "2850_on.mp3",
+   "loop": 1.221043,
+   "rms": 0.212
+  },
+  {
+   "rpm": 2850,
+   "layer": "off",
+   "file": "2850_off.mp3",
+   "loop": 1.221043,
+   "rms": 0.0428
+  },
+  {
+   "rpm": 3350,
+   "layer": "on",
+   "file": "3350_on.mp3",
+   "loop": 1.217914,
+   "rms": 0.1945
+  },
+  {
+   "rpm": 3350,
+   "layer": "off",
+   "file": "3350_off.mp3",
+   "loop": 1.217914,
+   "rms": 0.0479
+  },
+  {
+   "rpm": 3950,
+   "layer": "on",
+   "file": "3950_on.mp3",
+   "loop": 1.215193,
+   "rms": 0.2356
+  },
+  {
+   "rpm": 3950,
+   "layer": "off",
+   "file": "3950_off.mp3",
+   "loop": 1.215193,
+   "rms": 0.0575
+  },
+  {
+   "rpm": 4650,
+   "layer": "on",
+   "file": "4650_on.mp3",
+   "loop": 1.212902,
+   "rms": 0.1917
+  },
+  {
+   "rpm": 4650,
+   "layer": "off",
+   "file": "4650_off.mp3",
+   "loop": 1.212902,
+   "rms": 0.081
+  },
+  {
+   "rpm": 5500,
+   "layer": "on",
+   "file": "5500_on.mp3",
+   "loop": 1.2,
+   "rms": 0.2288
+  },
+  {
+   "rpm": 5500,
+   "layer": "off",
+   "file": "5500_off.mp3",
+   "loop": 1.2,
+   "rms": 0.1054
+  },
+  {
+   "rpm": 6500,
+   "layer": "on",
+   "file": "6500_on.mp3",
+   "loop": 1.2,
+   "rms": 0.3068
+  },
+  {
+   "rpm": 6500,
+   "layer": "off",
+   "file": "6500_off.mp3",
+   "loop": 1.2,
+   "rms": 0.2023
+  }
+ ]
+}

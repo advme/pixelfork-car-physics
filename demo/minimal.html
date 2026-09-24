@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<title>Car Physics · minimal</title>
+<link rel="icon" href="data:,">
+<!-- The smallest complete game with the built library (npm run build → dist/). W A S D / arrows, Space handbrake,
+     R reset, drag to look around. -->
+<script type="importmap">
+{
+  "imports": {
+    "three": "/node_modules/three/build/three.module.js",
+    "crashcat": "/node_modules/crashcat/dist/index.js",
+    "car": "/dist/car.module.js"
+  }
+}
+</script>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #9fc6e8; font: 13px system-ui, sans-serif }
+  canvas { display: block; width: 100%; height: 100%; touch-action: none }
+  #hud { position: fixed; left: 12px; top: 10px; color: #fff; text-shadow: 0 1px 3px #0008; font-weight: 700 }
+</style>
+</head>
+<body>
+<div id="hud"></div>
+<script type="module">
+import * as THREE from "three";
+import { rigidBody, box, MotionType } from "crashcat";
+import CAR from "car";
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(Math.min(2, devicePixelRatio));
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene();
+scene.background = new THREE.Color("#9fc6e8");
+const camera = new THREE.PerspectiveCamera(58, 1, 0.1, 800);
+scene.add(new THREE.HemisphereLight("#ffffff", "#667055", 2.2));
+const sun = new THREE.DirectionalLight("#ffffff", 1.6); sun.position.set(30, 50, 20); scene.add(sun);
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(400, 400), new THREE.MeshStandardMaterial({ color: "#7c8a6a" }));
+ground.rotation.x = -Math.PI / 2; scene.add(ground);
+scene.add(new THREE.GridHelper(400, 80, "#5e6b50", "#5e6b50"));
+
+/* the physics world (a game engine may already have one: pass that instead) and a few ramps */
+const physics = CAR.createPhysics({ floor: 400 });
+const ramp = (x, z, len, rise) => {
+  const angle = Math.atan2(rise, len), half = [3, 0.2, len / 2 / Math.cos(angle)];
+  const q = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), -angle);
+  const pos = [x, rise / 2 - 0.2 * Math.cos(angle), z];
+  rigidBody.create(physics.world, { shape: box.create({ halfExtents: half }), motionType: MotionType.STATIC, objectLayer: physics.layers.static, position: pos, quaternion: q.toArray() });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(half[0] * 2, half[1] * 2, half[2] * 2), new THREE.MeshStandardMaterial({ color: "#d9a441" }));
+  m.position.set(...pos); m.quaternion.copy(q); scene.add(m);
+};
+ramp(0, 40, 10, 1.5); ramp(-15, 70, 14, 3); ramp(18, 20, 8, 0.8);
+
+/* the car: no model = the built-in one (pass model: gltf.scene for your own) */
+const car = CAR.create({ scene, physics, color: "#e8412c" });
+const cam = CAR.createCamera(camera, car);
+
+const keys = new Set();
+addEventListener("keydown", (e) => { keys.add(e.code); if (e.code === "KeyR") { car.reset(); cam.reset(); } });
+addEventListener("keyup", (e) => keys.delete(e.code));
+let drag = null;
+renderer.domElement.addEventListener("pointerdown", (e) => { drag = [e.clientX, e.clientY]; });
+addEventListener("pointermove", (e) => { if (drag) { cam.orbit(e.clientX - drag[0], e.clientY - drag[1]); drag = [e.clientX, e.clientY]; } });
+addEventListener("pointerup", () => { drag = null; });
+renderer.domElement.addEventListener("wheel", (e) => cam.zoom(e.deltaY > 0 ? 1.1 : 0.9), { passive: true });
+const k = (...c) => (c.some((x) => keys.has(x)) ? 1 : 0);
+
+const resize = () => { renderer.setSize(innerWidth, innerHeight, false); camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); };
+addEventListener("resize", resize); resize();
+
+const hud = document.getElementById("hud");
+let last = performance.now(), acc = 0;
+renderer.setAnimationLoop((now) => {
+  const dt = Math.min(0.1, (now - last) / 1000); last = now; acc += dt;
+  while (acc >= 1 / 60) {
+    car.drive({ throttle: k("KeyW", "ArrowUp"), brake: k("KeyS", "ArrowDown"), steer: k("KeyD", "ArrowRight") - k("KeyA", "ArrowLeft"), handbrake: keys.has("Space") });
+    physics.step(1 / 60);
+    acc -= 1 / 60;
+  }
+  physics.sync(acc * 60);
+  cam.update(dt);
+  const e = car.engine;
+  hud.textContent = `${Math.abs(car.speed).toFixed(0)} km/h · ${e.gear < 0 ? "R" : e.gear} · ${e.rpm.toFixed(0)} rpm`;
+  renderer.render(scene, camera);
+});
+window.demo = { car, cam, physics };
+</script>
+</body>
+</html>

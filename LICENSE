@@ -1,0 +1,96 @@
+Pixelfork Car Physics
+Licence
+
+Copyright (c) 2026 Pixelfork. All rights reserved.
+
+This project is published so that people can see it, learn from it and evaluate
+it. It is NOT open source, and it is NOT free for commercial use.
+
+Everything in this repository is covered: the source code, the build tools, the
+documentation, the built-in car, the presets and tuning data. "The Work" below means all of it.
+
+
+1. WHAT YOU MAY DO
+
+Subject to the limits in section 2, Pixelfork grants you a worldwide,
+royalty-free, non-exclusive, non-transferable licence to:
+
+  (a) view, download and fork this repository;
+  (b) run and modify the Work for your own personal use, private study,
+      teaching, academic research, or to evaluate whether you want a commercial
+      licence; and
+  (c) share unmodified copies of the Work, provided this licence file is kept
+      with it and Pixelfork is credited as the author.
+
+
+2. WHAT YOU MAY NOT DO
+
+You may NOT put the Work, or anything derived from it, to Commercial Use
+without a separate written commercial licence from Pixelfork.
+
+"Commercial Use" means any use that is primarily intended for, or directed
+towards, commercial advantage or monetary compensation. It includes, without
+limitation:
+
+  (a) using the Work in any game, app, website, video or other product that is
+      sold, rented, licensed, or made available with advertising, sponsorship,
+      in-app purchases, subscriptions, donations or any other revenue;
+  (b) using the Work in client work, contract work or work for hire;
+  (c) using the Work inside a business, or to provide a service to a business;
+  (d) redistributing or reselling the Work, in whole or in part, as or within an
+      asset pack, template, library, marketplace listing, dataset or tool,
+      whether paid or free; and
+  (e) using the Work to train, fine-tune or evaluate a machine learning model
+      that is offered commercially.
+
+You may also not remove or obscure any copyright, credit or licence notice.
+
+Free-of-charge distribution does not make a use non-commercial. A game given
+away free but monetised by advertising is Commercial Use.
+
+
+3. COMMERCIAL LICENCES
+
+Commercial licences are available. Contact Pixelfork at:
+
+    Open an issue at the repository owner
+    or contact the repository owner through GitHub.
+
+Pixelfork and its subsidiaries retain the unrestricted right to use the Work
+commercially in their own products and services.
+
+
+4. THIRD-PARTY CONTENT
+
+Some files in this repository are not the Work and keep their own licences:
+the test car models in assets/models/test/ (CC-BY-4.0, authors listed in
+assets/models/test/CREDITS.md) and the engine sound recordings in
+assets/sounds/engines/, made with Engine Simulator (MIT, see
+assets/sounds/engines/CREDITS.md). Parts of the Work were produced with
+third-party generative tools; those tools' own terms continue to apply to the
+material they produced. Nothing in this licence grants you any right that
+Pixelfork does not itself hold.
+
+
+5. NO WARRANTY
+
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A
+PARTICULAR PURPOSE, TITLE AND NON-INFRINGEMENT. IN NO EVENT SHALL PIXELFORK BE
+LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE WORK
+OR THE USE OF OR OTHER DEALINGS IN THE WORK.
+
+
+6. IF YOU BREAK THIS LICENCE
+
+Your rights under this licence end automatically if you breach it. They are
+reinstated if you stop the breach and Pixelfork confirms reinstatement in
+writing. Sections 4, 5 and this sentence survive termination.
+
+
+7. RESERVED RIGHTS
+
+Any right not expressly granted above is reserved by Pixelfork. No trademark
+rights are granted. This licence does not grant permission to use the names
+"Pixelfork", "Pixelfork Car Physics" or any Pixelfork logo.

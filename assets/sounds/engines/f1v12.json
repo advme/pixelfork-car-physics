@@ -1,0 +1,184 @@
+{
+ "name": "f1v12",
+ "title": "Ferrari 412 T2 V12 (F1)",
+ "engine": "Ferrari 412 T2 [V12]",
+ "cylinders": 12,
+ "redline": 18000,
+ "idle": 3000,
+ "pad": 0.1,
+ "layers": {
+  "on": "full throttle",
+  "off": "throttle shut (overrun)"
+ },
+ "source": "Engine Simulator (AngeTheGreat, MIT) script engines/atg-video-2/12_ferrari_412_t2.mr, held at each rpm on its dynamometer",
+ "samples": [
+  {
+   "rpm": 3000,
+   "layer": "on",
+   "file": "3000_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1009
+  },
+  {
+   "rpm": 3000,
+   "layer": "off",
+   "file": "3000_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0108
+  },
+  {
+   "rpm": 3550,
+   "layer": "on",
+   "file": "3550_on.mp3",
+   "loop": 1.216893,
+   "rms": 0.0955
+  },
+  {
+   "rpm": 3550,
+   "layer": "off",
+   "file": "3550_off.mp3",
+   "loop": 1.216893,
+   "rms": 0.0125
+  },
+  {
+   "rpm": 4200,
+   "layer": "on",
+   "file": "4200_on.mp3",
+   "loop": 1.2,
+   "rms": 0.0936
+  },
+  {
+   "rpm": 4200,
+   "layer": "off",
+   "file": "4200_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0113
+  },
+  {
+   "rpm": 4950,
+   "layer": "on",
+   "file": "4950_on.mp3",
+   "loop": 1.212132,
+   "rms": 0.1169
+  },
+  {
+   "rpm": 4950,
+   "layer": "off",
+   "file": "4950_off.mp3",
+   "loop": 1.212132,
+   "rms": 0.011
+  },
+  {
+   "rpm": 5850,
+   "layer": "on",
+   "file": "5850_on.mp3",
+   "loop": 1.210249,
+   "rms": 0.3005
+  },
+  {
+   "rpm": 5850,
+   "layer": "off",
+   "file": "5850_off.mp3",
+   "loop": 1.210249,
+   "rms": 0.0248
+  },
+  {
+   "rpm": 6900,
+   "layer": "on",
+   "file": "6900_on.mp3",
+   "loop": 1.2,
+   "rms": 0.179
+  },
+  {
+   "rpm": 6900,
+   "layer": "off",
+   "file": "6900_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0166
+  },
+  {
+   "rpm": 8150,
+   "layer": "on",
+   "file": "8150_on.mp3",
+   "loop": 1.20737,
+   "rms": 0.3675
+  },
+  {
+   "rpm": 8150,
+   "layer": "off",
+   "file": "8150_off.mp3",
+   "loop": 1.20737,
+   "rms": 0.0347
+  },
+  {
+   "rpm": 9600,
+   "layer": "on",
+   "file": "9600_on.mp3",
+   "loop": 1.2,
+   "rms": 0.2108
+  },
+  {
+   "rpm": 9600,
+   "layer": "off",
+   "file": "9600_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0213
+  },
+  {
+   "rpm": 11350,
+   "layer": "on",
+   "file": "11350_on.mp3",
+   "loop": 1.205283,
+   "rms": 0.244
+  },
+  {
+   "rpm": 11350,
+   "layer": "off",
+   "file": "11350_off.mp3",
+   "loop": 1.205283,
+   "rms": 0.036
+  },
+  {
+   "rpm": 13400,
+   "layer": "on",
+   "file": "13400_on.mp3",
+   "loop": 1.2,
+   "rms": 0.2683
+  },
+  {
+   "rpm": 13400,
+   "layer": "off",
+   "file": "13400_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0311
+  },
+  {
+   "rpm": 15800,
+   "layer": "on",
+   "file": "15800_on.mp3",
+   "loop": 1.2,
+   "rms": 0.1739
+  },
+  {
+   "rpm": 15800,
+   "layer": "off",
+   "file": "15800_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0501
+  },
+  {
+   "rpm": 18000,
+   "layer": "on",
+   "file": "18000_on.mp3",
+   "loop": 1.2,
+   "rms": 0.3014
+  },
+  {
+   "rpm": 18000,
+   "layer": "off",
+   "file": "18000_off.mp3",
+   "loop": 1.2,
+   "rms": 0.0548
+  }
+ ]
+}
