@@ -71,7 +71,7 @@
   #touch { position: fixed; inset: auto 0 0 0; height: 150px; display: none; pointer-events: none; z-index: 3 }
   #touch.on { display: block }
   #touch button { position: absolute; bottom: 20px; width: 76px; height: 76px; border-radius: 50%; background: #fff2; font-size: 26px; pointer-events: auto; touch-action: none; padding: 0 }
-  #touch .l { left: 16px } #touch .r { left: 104px } #touch .b { right: 104px } #touch .g { right: 16px }
+  #touch .l { left: 16px } #touch .r { left: 104px } #touch .b { right: 104px } #touch .g { right: 16px } #touch .h { right: 60px; bottom: 104px; width: 60px; height: 60px; font-size: 13px }
   @media (max-width: 700px) { #map { width: 150px; height: 108px; bottom: 170px } #speedo { bottom: 170px } #board { font-size: 11px; min-width: 150px } #hint { display: none } }
 </style>
 </head>
@@ -108,7 +108,7 @@
   <div id="banner"></div>
   <div id="hint" class="panel">R back on track · drag to look around · Esc menu</div>
 </div>
-<div id="touch"><button class="l">◀</button><button class="r">▶</button><button class="b">▼</button><button class="g">▲</button></div>
+<div id="touch"><button class="l">◀</button><button class="r">▶</button><button class="h">HB</button><button class="b">▼</button><button class="g">▲</button></div>
 <script type="module" src="./race.js"></script>
 </body>
 </html>

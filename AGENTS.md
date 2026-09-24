@@ -46,6 +46,8 @@ src/engine-sound.js OPTIONAL: the recorded engine player (loads a pack once per 
 src/camera.js      createCamera(): GTA-style chase camera (spring follow, slide look, FOV at speed, shake, orbit)
 demo/playground.*  the 3D test scene (import map like a game's); window.playground for automated checks
 demo/sound.js      the playground / race sound for your car: recorded engines + engine-fx (AI cars use car/sound)
+demo/quality.js    phone-friendly rendering for the demos: pixel ratio ≤ 1.5 + cheaper shadows on touch devices,
+                   resolution steps down by itself when frames get slow
 demo/effects.js    skid marks + tyre smoke from the wheels' contact / skid
 demo/race.*        the race page (menu, lights, HUD, minimap, results); demo/track.js the City Circuit (layout →
                    centreline, walls (physics), road, kerbs, scenery, racing line); demo/race-ai.js lap tracker, AI
@@ -55,7 +57,7 @@ demo/course.js     the course (smooth extruded ramps, bumps, hills, kerbs), shar
 tools/test-car.mjs THE PHYSICS GATE (npm test): every test model detected, rigged, driven headless in Node
 tools/detect-report.mjs  what the detector finds per model (npm run detect)
 tools/load-glb.mjs three's GLTFLoader in Node (textures skipped)
-tools/serve.mjs    local no-cache server, port 8770; POST /__shot saves playground screenshots to _local/shots/
+tools/serve.mjs    local no-cache server, port 8770 (npm run serve:lan: port 8771 on the Wi-Fi, for a phone); POST /__shot saves playground screenshots to _local/shots/
 assets/models/test/  the test cars (CC-BY, see CREDITS.md)
 assets/sounds/engines/  engine sound packs recorded from Engine Simulator (MIT, see CREDITS.md): <name>.json + ONE
                    <name>.mp3 each (all loops, offsets in the json); games load them from here (keep the layout)

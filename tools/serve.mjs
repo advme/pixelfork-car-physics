@@ -3,14 +3,17 @@
  * Local preview server, no caching:   node tools/serve.mjs 8770
  *   http://localhost:8770/   the playground (demo/playground.html)
  * Serves the repo folder only (node_modules included: the demo loads three and crashcat from there).
+ * npm run serve:lan (HOST=0.0.0.0, port 8771): also reachable from a phone on the same Wi-Fi; it prints the address.
  */
 import http from 'node:http';
+import { networkInterfaces } from 'node:os';
 import { statSync, createReadStream, mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, normalize, extname, sep } from 'node:path';
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const PORT = Number(process.argv[2]) || 8770;
+const HOST = process.env.HOST || '127.0.0.1';
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8', '.css': 'text/css; charset=utf-8', '.md': 'text/markdown; charset=utf-8',
   '.map': 'application/json; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.glb': 'model/gltf-binary',
@@ -52,4 +55,8 @@ http.createServer((req, res) => {
 }).on('error', (e) => {
   console.error(e.code === 'EADDRINUSE' ? `port ${PORT} is busy (another server running?)` : e.message);
   process.exit(1);
-}).listen(PORT, '127.0.0.1', () => console.log(`http://localhost:${PORT}/`));
+}).listen(PORT, HOST, () => {
+  console.log(`http://localhost:${PORT}/`);
+  /* HOST=0.0.0.0 (npm run serve:lan): also reachable from a phone on the same Wi-Fi */
+  if (HOST === '0.0.0.0') for (const list of Object.values(networkInterfaces())) for (const a of list || []) if (a.family === 'IPv4' && !a.internal) console.log(`on your phone (same Wi-Fi): http://${a.address}:${PORT}/`);
+});

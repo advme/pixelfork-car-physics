@@ -7,6 +7,7 @@ import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
 import CAR from 'car';
 import { buildCourse } from './course.js';
 import { createCarSound, ENGINE_FOR_PRESET } from './sound.js';
+import { createQuality } from './quality.js';
 import { createEffects } from './effects.js';
 
 const MODELS = [
@@ -19,7 +20,6 @@ const $ = (id) => document.getElementById(id);
 /* ------------------------------------------------------------------ renderer, scene, light */
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -35,6 +35,7 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -30, right: 30, top: 30, bottom: -30, near: 1, far: 120 });
 scene.add(sun, sun.target);
+const quality = createQuality(renderer, sun);
 
 /* ------------------------------------------------------------------ physics + course */
 const physics = CAR.createPhysics({ floor: 800 });
@@ -263,10 +264,13 @@ canvas.addEventListener('pointercancel', endDrag);
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam?.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
 
 const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
-if (matchMedia('(pointer: coarse)').matches) $('touch').classList.add('on');
+const coarse = matchMedia('(pointer: coarse)').matches;
+if (coarse) $('touch').classList.add('on');
+/* narrow screens: the panel folds behind ☰ (the car picker stays) */
+$('menuToggle').onclick = () => { $('panel').classList.toggle('open'); $('menuToggle').blur(); };
 for (const k of Object.keys(touch)) {
   const el = document.querySelector(`#touch .${k}`);
-  el.onpointerdown = (e) => { sound.start(); touch[k] = 1; el.setPointerCapture(e.pointerId); };
+  el.onpointerdown = (e) => { sound.start(); touch[k] = 1; try { el.setPointerCapture(e.pointerId); } catch { /* not an active pointer */ } };
   el.onpointerup = el.onpointercancel = () => { touch[k] = 0; };
 }
 function readInput() {
@@ -334,7 +338,7 @@ function drawHud() {
   $('gear').textContent = e.gear === -1 ? 'R' : Math.abs(car.speed) < 1 && e.throttle < 0.05 ? 'N' : String(e.gear);
   const eng = sound.engine;
   const boost = sound.fx && turboMode !== 2 ? ` · boost ${(sound.fx.boost * 1.2).toFixed(1)} bar` : '';
-  $('eng').textContent = eng ? `🔊 ${eng}${boost}` : sound.muted ? 'sound off' : 'click or press a key for sound';
+  $('eng').textContent = eng ? `🔊 ${eng}${boost}` : sound.muted ? 'sound off' : coarse ? 'tap for sound' : 'click or press a key for sound';
   document.querySelector('#rpm i').style.width = `${Math.min(100, (e.rpm / e.redline) * 100).toFixed(1)}%`;
 }
 
@@ -343,6 +347,7 @@ const STEP = 1 / 60;
 let acc = 0, last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
+  quality.frame((now - last) / 1000);
   last = now;
   if (car && !window.playground.auto) car.drive(readInput());
   acc += dt;

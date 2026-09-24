@@ -27,6 +27,7 @@
   #game.drag { cursor: grabbing }
   #panel { position: fixed; top: 12px; left: 12px; right: 12px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; pointer-events: none }
   #panel > * { pointer-events: auto }
+  #menuToggle { display: none }
   button, select { font: inherit; font-weight: 600; color: #fff; background: #3a3f4d; border: 0; border-radius: 8px; padding: 8px 12px; cursor: pointer }
   button:hover, select:hover { background: #4a5061 }
   button[aria-pressed="true"] { background: #ff7a3d }
@@ -59,12 +60,14 @@
   #touch.on { display: block }
   #touch button { position: absolute; bottom: 20px; width: 76px; height: 76px; border-radius: 50%; background: #fff2; font-size: 26px; pointer-events: auto; touch-action: none }
   #touch .l { left: 16px } #touch .r { left: 104px } #touch .b { right: 104px } #touch .g { right: 16px } #touch .h { right: 60px; bottom: 104px; width: 60px; height: 60px; font-size: 13px }
-  @media (max-width: 700px) { #tip, #credit { display: none } #tune { left: 12px; width: auto; bottom: 170px } #hud { bottom: 170px } }
+  @media (max-width: 700px) { #menuToggle { display: inline-block } #panel:not(.open) > :not(#menuToggle):not(#model) { display: none }
+    #tip, #credit { display: none } #tune { left: 12px; width: auto; bottom: 170px } #hud { bottom: 170px } }
 </style>
 </head>
 <body>
 <canvas id="game"></canvas>
 <div id="panel">
+  <button id="menuToggle" type="button" title="More">☰</button>
   <select id="model" title="Car model"></select>
   <a href="./race.html"><button type="button" title="8-car race on the City Circuit">🏁 Race</button></a>
   <button id="open" title="Load your own .glb (or drop it on the page)">Load GLB…</button>

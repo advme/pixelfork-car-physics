@@ -9,6 +9,7 @@ import { buildTrack } from './track.js';
 import { RACE_CARS, RIVALS } from './race-cars.js';
 import { createTracker, createDriver, standings, slipstream } from './race-ai.js';
 import { createCarSound } from './sound.js';
+import { createQuality } from './quality.js';
 import { createCarSound as createBuiltInSound } from 'car/sound';
 import { createEffects } from './effects.js';
 
@@ -18,7 +19,6 @@ const STEP = 1 / 60;
 /* ------------------------------------------------------------------ renderer, scene, light */
 const canvas = $('game');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -34,6 +34,7 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(2048, 2048);
 Object.assign(sun.shadow.camera, { left: -45, right: 45, top: 45, bottom: -45, near: 1, far: 200 });
 scene.add(sun, sun.target);
+const quality = createQuality(renderer, sun);
 
 const physics = CAR.createPhysics({ floor: 5000 });
 const track = buildTrack(scene, physics);
@@ -132,18 +133,21 @@ canvas.addEventListener('pointerdown', (e) => { sound.start(); drag = { x: e.cli
 canvas.addEventListener('pointermove', (e) => { if (drag && e.pointerId === drag.id && cam) { cam.orbit(e.clientX - drag.x, e.clientY - drag.y); drag.x = e.clientX; drag.y = e.clientY; } });
 canvas.addEventListener('pointerup', () => { drag = null; });
 canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam?.zoom(Math.exp(e.deltaY * 0.0012)); }, { passive: false });
-const touch = { l: 0, r: 0, g: 0, b: 0 };
-if (matchMedia('(pointer: coarse)').matches) $('touch').classList.add('on');
+const touch = { l: 0, r: 0, g: 0, b: 0, h: 0 };
+if (matchMedia('(pointer: coarse)').matches) {
+  $('touch').classList.add('on');
+  document.querySelector('#menu .keys').textContent = '◀ ▶ steer · ▲ gas · ▼ brake, reverse · HB handbrake · HB + ▲ + ◀ or ▶: donut · drag to look around';
+}
 for (const k of Object.keys(touch)) {
   const el = document.querySelector(`#touch .${k}`);
-  el.onpointerdown = (e) => { sound.start(); touch[k] = 1; el.setPointerCapture(e.pointerId); };
+  el.onpointerdown = (e) => { sound.start(); touch[k] = 1; try { el.setPointerCapture(e.pointerId); } catch { /* not an active pointer */ } };
   el.onpointerup = el.onpointercancel = () => { touch[k] = 0; };
 }
 function readInput() {
   const k = (...c) => c.some((x) => keys.has(x));
   let throttle = k('KeyW', 'ArrowUp') || touch.g ? 1 : 0, brake = k('KeyS', 'ArrowDown') || touch.b ? 1 : 0;
   let steer = (k('KeyD', 'ArrowRight') || touch.r ? 1 : 0) - (k('KeyA', 'ArrowLeft') || touch.l ? 1 : 0);
-  let handbrake = k('Space');
+  let handbrake = k('Space') || !!touch.h;
   const pad = navigator.getGamepads?.().find((p) => p && p.connected);
   if (pad) {
     const ax = pad.axes[0] || 0;
@@ -236,6 +240,7 @@ function drawHud() {
 let acc = 0, last = performance.now();
 function frame(now) {
   const dt = Math.min(0.1, (now - last) / 1000);
+  quality.frame((now - last) / 1000);
   last = now;
   if (race && !race.done) {
     acc += dt;

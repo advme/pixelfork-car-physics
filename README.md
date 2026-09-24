@@ -133,6 +133,7 @@ A wheel welded into the body mesh cannot be found yet.
 ```bash
 npm install
 npm run serve            # http://localhost:8770/  — the playground: pick a car or drop your own .glb
+npm run serve:lan        # the same on your Wi-Fi (port 8771), to try it on a phone: it prints the address
 npm test                 # headless: detect + drive every test model; the library inside a game's own physics world
 npm run test:compressed  # the same on meshopt-compressed copies of the test models
 npm run build            # dist/ + types + registry (after any change in src/)

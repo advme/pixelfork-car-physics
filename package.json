@@ -11,7 +11,8 @@
     "test:race": "node tools/test-race.mjs 3",
     "test:compressed": "node tools/test-compressed.mjs",
     "detect": "node tools/detect-report.mjs",
-    "serve": "node tools/serve.mjs 8770"
+    "serve": "node tools/serve.mjs 8770",
+    "serve:lan": "HOST=0.0.0.0 node tools/serve.mjs 8771"
   },
   "peerDependencies": {
     "crashcat": "0.0.5",
