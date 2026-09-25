@@ -1,6 +1,6 @@
 {
   "name": "pixelfork-car",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "needs": {
     "three": "0.186.0",
     "crashcat": "0.0.5"
@@ -10,7 +10,8 @@
     "car": "dist/car.module.js",
     "car/sound": "dist/car-sound.module.js",
     "car/engine-fx": "dist/car-engine-fx.module.js",
-    "car/engine-sound": "dist/car-engine-sound.module.js"
+    "car/engine-sound": "dist/car-engine-sound.module.js",
+    "car/effects": "dist/car-effects.module.js"
   },
   "layout": "keep the repo layout: dist/*.module.js and assets/sounds/engines/ side by side under one folder (the sound modules find the recordings at ../assets/sounds/engines/)",
   "engines": {
@@ -146,9 +147,10 @@
     }
   },
   "optional": {
-    "car/sound": "the car's sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo, tyres, road, wind, bumps, crashes",
+    "car/sound": "the car's sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo blow-off, tyres, bumps, crashes",
     "car/engine-fx": "exhaust pops & bangs + turbo, synthesised (no files)",
-    "car/engine-sound": "recorded engine sound packs (loads audio files)"
+    "car/engine-sound": "recorded engine sound packs (loads audio files)",
+    "car/effects": "skid marks and tyre smoke from the wheels (three.js meshes, no files): createCarEffects(scene, cars).update(dt) every frame"
   },
   "presets": {
     "car": {

@@ -1,6 +1,7 @@
 /* City Circuit race: you + 7 AI drivers, three car choices. Uses the car library's public API (CAR.create,
    CAR.createCamera), the track (./track.js), race logic + AI (./race-ai.js), sound (./sound.js for your car, the
-   library's car/sound for the AI cars: the same recorded engines, quieter with distance) and effects. */
+   library's car/sound for the AI cars: the same recorded engines, quieter with distance) and the library's
+   car/effects (skid marks and tyre smoke for every car). */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -11,7 +12,7 @@ import { createTracker, createDriver, standings, slipstream } from './race-ai.js
 import { createCarSound } from './sound.js';
 import { createQuality } from './quality.js';
 import { createCarSound as createBuiltInSound } from 'car/sound';
-import { createEffects } from './effects.js';
+import { createCarEffects } from 'car/effects';
 
 const $ = (id) => document.getElementById(id);
 const STEP = 1 / 60;
@@ -39,7 +40,7 @@ const quality = createQuality(renderer, sun);
 const physics = CAR.createPhysics({ floor: 5000 });
 const track = buildTrack(scene, physics);
 const sound = createCarSound();
-const fx = createEffects(scene);
+const fx = createCarEffects(scene);
 
 /* ------------------------------------------------------------------ models */
 const loader = new GLTFLoader();
@@ -103,6 +104,7 @@ function startRace() {
     } else player = e;
     field.push(e);
   }
+  fx.setCars(field.map((e) => e.car));
   sound.useEngine(mySpec.engine);
   sound.setFx({ turbo: mySpec.turbo ? 0.6 : 0, blowoff: mySpec.turbo ? 0.6 : 0, pops: 1 });
   if (!cam) cam = CAR.createCamera(camera, player.car); else cam.setCar(player.car);
@@ -254,7 +256,7 @@ function frame(now) {
     sun.position.copy(player.car.object.position).add(new THREE.Vector3(40, 70, 25));
     sun.target.position.copy(player.car.object.position);
   }
-  fx.update(field.map((e) => e.car), dt);
+  fx.update(dt);
   if (player) sound.update(player.car);
   for (const e of field) if (e.sound) e.sound.update();
   drawHud();
@@ -325,7 +327,6 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  fx.setScale(renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * Math.tan((camera.fov * Math.PI) / 360)));
   mapLayout();
 }
 addEventListener('resize', resize);
@@ -340,7 +341,7 @@ resize();
 requestAnimationFrame(frame);
 
 /* for automated checks */
-window.race = { get field() { return field; }, get player() { return player; }, get state() { return race; }, track, camera, sound, start: startRace, pick,
+window.race = { get field() { return field; }, get player() { return player; }, get state() { return race; }, track, camera, sound, fx, start: startRace, pick,
   async shot(name, width = 1000) {
     renderer.render(scene, camera);
     const c = document.createElement('canvas');

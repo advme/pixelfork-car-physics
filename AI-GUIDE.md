@@ -1,4 +1,4 @@
-# Pixelfork Car Physics — AI guide (pixelfork-car@0.9.1-A)
+# Pixelfork Car Physics — AI guide (pixelfork-car@0.9.2-A)
 
 **You never build a car. You create one and drive it.**
 Give it any car model (a GLB with the wheels modelled in) — or no model for a built-in low-poly car. The wheels are
@@ -8,7 +8,8 @@ Units: metres, seconds, km/h for speeds you read. A car at `yaw: 0` faces +z. `p
 
 ## 1. Load
 One three.js and one crashcat on the page, shared through an import map with the names `"three"`, `"crashcat"` and
-`"car"` (a game engine may write this map for you; `"car/sound"` for §7). Never bundle or load a second three.js.
+`"car"` (a game engine may write this map for you; `"car/sound"` for §7, `"car/effects"` for §8). Never bundle or
+load a second three.js.
 ```js
 import CAR from "car";
 ```
@@ -68,8 +69,8 @@ if (!car) { /* no wheels found: see the console warning; fall back to CAR.create
 - Camera: `cam.orbit(dxPixels, dyPixels)` on mouse / finger drag (it swings back behind after 1.5 s),
   `cam.zoom(1.1)` on the wheel, `cam.setMode("chase" | "far" | "hood")`, `cam.setCar(otherCar)`, `cam.reset()`.
 - Read: `car.speed` (km/h, negative reversing) · `car.engine` `{ rpm, gear (-1 = R), gears, redline, throttle,
-  shifting, limiter }` · `car.skid` 0..1 (tyre screech, skid marks) · `car.impact` 0..1 (landings, knocks: thump
-  sound) · `car.grounded` (wheels on the ground) · `car.object` (the three.js object to follow or attach things to).
+  shifting, limiter }` · `car.skid` 0..1 (how much the tyres slide; data only: nothing is drawn unless you use
+  `car/effects`, §8) · `car.impact` 0..1 (landings, knocks: thump sound) · `car.grounded` (wheels on the ground) · `car.object` (the three.js object to follow or attach things to).
 - Stuck or upside down: `car.reset()` (1 m up, same heading) or `car.reset([x, y, z], yaw)` to a checkpoint.
   Upside down test: `new THREE.Vector3(0, 1, 0).applyQuaternion(car.object.quaternion).y < 0.3`.
 - `car.remove()` takes it out of the scene and the world.
@@ -117,8 +118,23 @@ library finds the files itself. Options (live in `sound.options`): `volume` 0..2
 (0 = none), `tyres`, `crashes` 0..1 (1). `sound.setEngine("ls")`, `sound.muted = true`, `sound.dispose()` with
 `car.remove()`. Your own sounds instead? Read `car.engine`, `car.skid` and `car.impact`.
 
-## 8. Several cars, races, AI
-- Every car is independent: make as many as you need, from one model or several (the demo races 8).
+## 8. Skid marks and tyre smoke (optional module)
+Map `"car/effects"` too. One call draws the marks and smoke from each wheel's own contact point and slip:
+```js
+import { createCarEffects } from "car/effects";
+const fx = createCarEffects(scene, car);   // or [car1, car2, …]: one for all cars (an array is re-read every update)
+/* every frame, after physics.sync(): */ fx.update(frameDt);
+```
+Marks: dark strips on the ground behind tyres that slide, spin or lock (handbrake turns, drifts, donuts, launches);
+the oldest fade out. Smoke: puffs from spinning or locked tyres (burnouts, donuts, handbrake) and a little from big
+slides; none from ordinary driving. Options (live in `fx.options`): `marks` pieces kept (3000; 1500 on touch
+screens; 0 = none), `smoke` 0..2 (1; 0.6 on touch screens; 0 = none), `markColor`, `smokeColor` (darker at night).
+`fx.setCars(cars)` for a new field, `fx.clear()` on a restart, `fx.dispose()` when leaving. Use this instead of
+attaching your own smoke to the car: it comes from the right wheels at the right moments.
+
+## 9. Several cars, races, AI
+- Every car is independent: make as many as you need, from one model or several (the demo races 8). One
+  `createCarEffects(scene, cars)` covers them all.
 - Cars collide with each other and with anything dynamic. Wheels drive on every body except sensors.
 - An AI driver is only `car.drive()` from your own code: steer toward a point 10–40 m ahead on your track line, slow
   down before corners. Steering toward a point (tx, tz):
@@ -129,7 +145,7 @@ car.drive({ throttle: 0.8, steer: Math.max(-1, Math.min(1, a / 0.5)) });
 ```
 - Walls: static boxes or triangle meshes along the track edge, about 1 m high. Kerbs up to ~16 cm are climbed.
 
-## 9. Pitfalls
+## 10. Pitfalls
 - `drive()` before `physics.step()`, `cam.update()` after `physics.sync()`. Never move `car.object` yourself:
   the physics does; use `car.reset(position, yaw)` to teleport.
 - Never scale or re-parent `car.object`, and never add `gltf.scene` to the scene as well (the car is a copy of it).

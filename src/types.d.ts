@@ -1,4 +1,4 @@
-/* Types for Pixelfork Car Physics (import names "car", "car/sound", "car/engine-fx", "car/engine-sound").
+/* Types for Pixelfork Car Physics (import names "car", "car/sound", "car/effects", "car/engine-fx", "car/engine-sound").
    tools/build.mjs checks that these list what the code really has, and copies them to dist/types.d.ts. */
 
 declare module "car" {
@@ -136,7 +136,7 @@ declare module "car" {
     readonly engine: EngineState;
     /** 0..1: how hard the suspension was just hit (landings, kerbs); fades out */
     readonly impact: number;
-    /** 0..1: how much the tyres slide or spin (for tyre screech, skid marks) */
+    /** 0..1: how much the tyres slide or spin. Data only: nothing is drawn unless you use "car/effects" */
     readonly skid: number;
     /** change handling live; returns the numbers in use */
     tune(p: Tuning): Required<Tuning>;
@@ -264,8 +264,37 @@ declare module "car/sound" {
   /** name → title of every recorded engine */
   export const RECORDED_ENGINES: Record<RecordedEngineName, string>;
   export const SYNTH_ENGINES: SynthEngineName[];
-  /** the car's whole sound: a real recorded engine, pops, turbo, tyres, road, wind, bumps, crashes */
+  /** the car's whole sound: a real recorded engine, pops, turbo blow-off, tyres, bumps, crashes */
   export function createCarSound(car: Car, options?: CarSoundOptions): CarSound;
+}
+
+declare module "car/effects" {
+  import type { Object3D, Group, ColorRepresentation } from "three";
+  import type { Car } from "car";
+  export interface CarEffectsOptions {
+    /** skid-mark pieces kept, each 25-80 cm of one tyre's mark; the oldest fade out and are reused; 0 = no marks (3000; 1500 on touch screens) */ marks?: number;
+    /** tyre smoke amount 0..2; 0 = none (1; 0.6 on touch screens) */ smoke?: number;
+    /** the marks' colour ("#141416") */ markColor?: ColorRepresentation;
+    /** the smoke's colour ("#d9d9d9"; darker for a night scene) */ smokeColor?: ColorRepresentation;
+  }
+  export interface CarEffects {
+    /** every frame, after physics.sync(): dt = the frame's seconds (left out: measured) */
+    update(dt?: number): void;
+    /** follow other cars: one car, an array (read every update, so cars added to it later count) or null */
+    setCars(cars: Car | (Car | null)[] | null): void;
+    /** wipe every mark and puff (a new race, a restart) */
+    clear(): void;
+    /** take it out of the scene and free its GPU memory */
+    dispose(): void;
+    /** the options in use; change them live */
+    options: { marks: number; smoke: number; markColor: ColorRepresentation; smokeColor: ColorRepresentation };
+    /** the three.js group with the marks and the smoke (fx.object.visible = false hides them) */
+    readonly object: Group;
+    /** how many mark pieces and smoke puffs there are now */
+    readonly stats: { marks: number; smoke: number };
+  }
+  /** skid marks and tyre smoke for one car or many (scene: where the cars are drawn, the scene given to CAR.create) */
+  export function createCarEffects(scene: Object3D, cars?: Car | (Car | null)[] | null, options?: CarEffectsOptions): CarEffects;
 }
 
 declare module "car/engine-fx" {

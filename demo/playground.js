@@ -1,6 +1,6 @@
-/* The playground: drive any car model on a small course. Uses only the library's public API (the import map's "car")
-   plus plain three.js + crashcat for the course, like a game would. Sound (demo/sound.js) and skid marks / smoke
-   (demo/effects.js) read the car's public data. */
+/* The playground: drive any car model on a small course. Uses only the library's public API (the import map's "car",
+   "car/sound" through demo/sound.js, "car/effects" for skid marks and tyre smoke) plus plain three.js + crashcat for
+   the course, like a game would. */
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
@@ -8,7 +8,7 @@ import CAR from 'car';
 import { buildCourse } from './course.js';
 import { createCarSound, ENGINE_FOR_PRESET } from './sound.js';
 import { createQuality } from './quality.js';
-import { createEffects } from './effects.js';
+import { createCarEffects } from 'car/effects';
 
 const MODELS = [
   { name: 'Cyberpunk car', file: '/assets/models/test/cyberpunk_car.glb', preset: 'sport' },
@@ -57,7 +57,7 @@ ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true;
 scene.add(ground);
 
 const sound = createCarSound();
-const fx = createEffects(scene);
+const fx = createCarEffects(scene);
 let cam = null;
 
 /* ------------------------------------------------------------------ car loading */
@@ -86,6 +86,7 @@ async function spawn(src, keepPlace = false) {
   const t0 = performance.now();
   car = CAR.create({ scene, physics, model: gltf.scene, preset: $('preset').value, position: place, yaw, forward: forwardOverride[src.name], ...overrides });
   const ms = performance.now() - t0;
+  fx.setCars(car);
   if (!car) { message(`No wheels found in ${src.name}. Automatic detection needs the wheels to be separate parts of the mesh.`, 6000); return; }
   message('');
   showReport(ms);
@@ -361,7 +362,7 @@ function frame(now) {
     sun.position.copy(car.object.position).add(new THREE.Vector3(18, 30, 12));
     sun.target.position.copy(car.object.position);
   }
-  fx.update(car, dt);
+  fx.update(dt);
   sound.update(car);
   drawHud();
   drawDebug();
@@ -372,14 +373,13 @@ function resize() {
   renderer.setSize(innerWidth, innerHeight, false);
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
-  fx.setScale(renderer.getDrawingBufferSize(new THREE.Vector2()).y / (2 * Math.tan((camera.fov * Math.PI) / 360)));
 }
 addEventListener('resize', resize);
 resize();
 
 /* for automated checks: window.playground.drive({ throttle: 1 }, 2) → drives 2 s with that input */
 window.playground = {
-  THREE, scene, physics, camera, renderer, sound,
+  THREE, scene, physics, camera, renderer, sound, fx,
   get car() { return car; },
   get cam() { return cam; },
   auto: false,

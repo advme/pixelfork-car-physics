@@ -23,15 +23,18 @@ make it easier to use correctly on the first try.
 ## 3. Where things are
 ```
 src/index.js       THE PUBLIC API (default export CAR): create, createPhysics, createCamera, inspect, presets, tuning
-src/types.d.ts     the types ("car", "car/sound", "car/engine-fx", "car/engine-sound"); the build checks them against the code
+src/types.d.ts     the types ("car", "car/sound", "car/effects", "car/engine-fx", "car/engine-sound"); the build checks them
+                   against the code
 src/default-car.js the built-in low-poly car (no model given); goes through the same wheel detection
 AI-GUIDE.md        what game-writing AIs read (keep ≤ 180 lines; the build checks every tuning number is in it)
 llms.txt           one-screen summary for LLMs
-dist/              BUILT, committed: car.module.js, car-sound.module.js, car-engine-fx.module.js, car-engine-sound.module.js, types.d.ts,
-                   registry.json (npm run build; never edit by hand)
+dist/              BUILT, committed: car.module.js, car-sound.module.js, car-effects.module.js, car-engine-fx.module.js,
+                   car-engine-sound.module.js, types.d.ts, registry.json (npm run build; never edit by hand)
 tools/build.mjs    the build: types vs code, bundles, refuses eval / network / workers in the core, registry, guide
 tools/test-host.mjs  the library inside a game's own crashcat world (part of npm test): the game's step runs once
                    per frame, linked objects draw from the frame start, same driving as CAR.createPhysics()
+tools/test-effects.mjs  car/effects headless (part of npm test): marks + smoke only when tyres slide / spin / lock,
+                   on the ground under the wheels, nothing while paused or after car.remove(), no mark across a reset
 tools/test-compressed.mjs  meshopt-compressed test models (gltfpack): same wheels, physics gate passes
 demo/minimal.html  the smallest complete game, on dist/ (proves the bundle works in a browser)
 src/detect.js      wheel detection from shape alone (three.js only for the scene graph; runs in Node)
@@ -39,8 +42,10 @@ src/rig.js         splits the model into body / wheels, builds pivots (mount →
 src/vehicle.js     raycast vehicle on crashcat, no three.js: suspension, tyres, engine, brakes, steering; PRESETS
 src/physics.js     createPhysics(): a ready crashcat world for games without one
 src/sound.js       OPTIONAL "car/sound": the car's sound — a recorded engine (./engine-sound.js, files found at
-                   ../assets/sounds/engines/ from the module, or o.sounds), pops/turbo (engine-fx), tyres, road, wind,
-                   thumps, crashes; distance + pan from a listener; a synthesised engine only as the fallback
+                   ../assets/sounds/engines/ from the module, or o.sounds), pops/turbo (engine-fx), tyres, thumps,
+                   crashes; distance + pan from a listener; a synthesised engine only as the fallback
+src/effects.js     OPTIONAL "car/effects": skid marks (one ring-buffer mesh of quads) + tyre smoke (instanced camera-facing
+                   puffs) from the wheels' contact / normal / slide / spinSlip / lock; lighter defaults on touch screens
 src/engine-fx.js   OPTIONAL: exhaust pops & bangs + turbo (whine, whoosh, blow-off / flutter), synthesised
 src/engine-sound.js OPTIONAL: the recorded engine player (loads a pack once per audio context, shared by all cars)
 src/camera.js      createCamera(): GTA-style chase camera (spring follow, slide look, FOV at speed, shake, orbit)
@@ -48,7 +53,6 @@ demo/playground.*  the 3D test scene (import map like a game's); window.playgrou
 demo/sound.js      the playground / race sound for your car: recorded engines + engine-fx (AI cars use car/sound)
 demo/quality.js    phone-friendly rendering for the demos: pixel ratio ≤ 1.5 + cheaper shadows on touch devices,
                    resolution steps down by itself when frames get slow
-demo/effects.js    skid marks + tyre smoke from the wheels' contact / skid
 demo/race.*        the race page (menu, lights, HUD, minimap, results); demo/track.js the City Circuit (layout →
                    centreline, walls (physics), road, kerbs, scenery, racing line); demo/race-ai.js lap tracker, AI
                    drivers (speed profile + pure pursuit + passing), slipstream; demo/race-cars.js the 3 balanced cars

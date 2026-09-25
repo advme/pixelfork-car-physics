@@ -36,6 +36,7 @@ renderer.render(scene, camera);
 |---|---|---|
 | `car` | `dist/car.module.js` | the library (≈ 57 KB, 18 KB gzipped) |
 | `car/sound` | `dist/car-sound.module.js` | optional: the car's sound, with real recorded engines (`assets/sounds/engines/`) |
+| `car/effects` | `dist/car-effects.module.js` | optional: skid marks and tyre smoke (three.js only, no files) |
 | `car/engine-fx` | `dist/car-engine-fx.module.js` | optional: pops & bangs + turbo, synthesised |
 | `car/engine-sound` | `dist/car-engine-sound.module.js` | optional: just the recorded engine player |
 
@@ -45,7 +46,7 @@ engine's own step still runs once per frame, so its linked objects draw smoothly
 Models compressed with meshopt (gltfpack, gltf-transform) work the same: `npm run test:compressed` checks it.
 
 `car.speed` (km/h) · `car.engine` ({ rpm, gear, redline, throttle, shifting }) · `car.skid` / `car.impact` (0..1, for
-sounds and effects) · `car.tune({ grip: 1.6 })` (live) · `car.reset()` · `car.remove()` · `car.report` (what was found) ·
+sounds and effects; nothing is drawn from them unless you use `car/effects`) · `car.tune({ grip: 1.6 })` (live) · `car.reset()` · `car.remove()` · `car.report` (what was found) ·
 `CAR.inspect(model)` (detect only).
 
 A GTA-style chase camera (lags behind, looks into slides, wider at speed, shakes on landings, orbit with the mouse):
@@ -64,6 +65,21 @@ What the physics does: tyre-shaped wheel probes (they roll up kerbs), soft-bump 
 tyres with a slip curve and relaxation length, engine with revs, torque curve, automatic gearbox and engine braking,
 traction control and ABS that keep cornering grip first, automatic countersteer, stability control that only steps in
 when the car slides, landing assist in the air. Cars run at 120 Hz inside the game's 60 Hz `physics.step`.
+
+## Skid marks and tyre smoke (optional)
+
+```js
+import { createCarEffects } from 'car/effects';
+const fx = createCarEffects(scene, car);   // or an array of cars: one for all of them
+fx.update(dt);                              // every frame, after physics.sync()
+```
+
+Dark marks on the ground behind tyres that slide, spin or lock, and smoke from spinning or locked tyres (burnouts,
+donuts, handbrake turns) and big slides, from each wheel's own contact point, ground normal and slip. Two meshes for
+all cars: a ring of mark pieces (the oldest fade out) and instanced camera-facing puffs sized in metres. Nothing from
+ordinary driving or traction-control wheelspin at speed, nothing while the physics is paused or after `car.remove()`,
+no mark across a `car.reset()`. Options (live in `fx.options`): `marks` (pieces kept), `smoke` (0..2), `markColor`,
+`smokeColor`; touch screens get fewer marks and less smoke by default. `npm test` checks it headless.
 
 ## Car sound (optional): real recorded engines
 

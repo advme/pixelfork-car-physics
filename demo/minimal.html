@@ -6,14 +6,15 @@
 <title>Car Physics · minimal</title>
 <link rel="icon" href="data:,">
 <!-- The smallest complete game with the built library (npm run build → dist/). W A S D / arrows, Space handbrake,
-     R reset, M sound, drag to look around. -->
+     W + Space + A/D donut, R reset, M sound, drag to look around. -->
 <script type="importmap">
 {
   "imports": {
     "three": "/node_modules/three/build/three.module.js",
     "crashcat": "/node_modules/crashcat/dist/index.js",
     "car": "/dist/car.module.js",
-    "car/sound": "/dist/car-sound.module.js"
+    "car/sound": "/dist/car-sound.module.js",
+    "car/effects": "/dist/car-effects.module.js"
   }
 }
 </script>
@@ -30,6 +31,7 @@ import * as THREE from "three";
 import { rigidBody, box, MotionType } from "crashcat";
 import CAR from "car";
 import { createCarSound } from "car/sound";
+import { createCarEffects } from "car/effects";
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(2, devicePixelRatio));
@@ -62,8 +64,10 @@ wall.position.set(0, 0.6, 130); scene.add(wall);
 /* the car: no model = the built-in one (pass model: gltf.scene for your own) */
 const car = CAR.create({ scene, physics, color: "#e8412c" });
 const cam = CAR.createCamera(camera, car);
-/* built-in sound (no files): starts on the first key or tap */
+/* its sound (a recorded engine, found next to the library): starts on the first key or tap */
 const sound = createCarSound(car, { listener: camera });
+/* skid marks and tyre smoke */
+const fx = createCarEffects(scene, car);
 
 const keys = new Set();
 addEventListener("keydown", (e) => { keys.add(e.code); if (e.code === "KeyR") { car.reset(); cam.reset(); } if (e.code === "KeyM") sound.muted = !sound.muted; });
@@ -90,11 +94,12 @@ renderer.setAnimationLoop((now) => {
   physics.sync(acc * 60);
   cam.update(dt);
   sound.update();
+  fx.update(dt);
   const e = car.engine;
   hud.textContent = `${Math.abs(car.speed).toFixed(0)} km/h · ${e.gear < 0 ? "R" : e.gear} · ${e.rpm.toFixed(0)} rpm`;
   renderer.render(scene, camera);
 });
-window.demo = { car, cam, physics, sound };
+window.demo = { car, cam, physics, sound, fx };
 </script>
 </body>
 </html>

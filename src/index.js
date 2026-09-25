@@ -17,7 +17,7 @@ import { createChaseCamera } from './camera.js';
 import { createDefaultCar } from './default-car.js';
 import { updateWorld } from 'crashcat';
 
-const VERSION = '0.9.1';
+const VERSION = '0.9.2';
 const HOOK = Symbol.for('car.hook');
 const warned = new Set();
 function warnOnce(msg) { if (!warned.has(msg)) { warned.add(msg); console.warn(`[car] ${msg}`); } }

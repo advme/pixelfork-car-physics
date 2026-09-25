@@ -3,13 +3,15 @@
  * Build everything games load, after ANY change:   npm run build
  *
  *   1. checks that src/types.d.ts lists what the code really has (a car made in Node, CAR's functions, the tuning
- *      numbers, the presets) and that the version in src/index.js is package.json's
+ *      numbers, the presets, the car sound and the car effects) and that the version in src/index.js is package.json's
  *   2. bundles (ES modules; three and crashcat stay external = the game's import map):
  *        src/index.js        → dist/car.module.js              import name "car"
  *        src/sound.js        → dist/car-sound.module.js        import name "car/sound"        (optional: the car's sound;
  *                                                             loads the recorded engines from assets/sounds/engines/)
  *        src/engine-fx.js    → dist/car-engine-fx.module.js    import name "car/engine-fx"    (optional)
  *        src/engine-sound.js → dist/car-engine-sound.module.js import name "car/engine-sound" (optional, loads files)
+ *        src/effects.js      → dist/car-effects.module.js      import name "car/effects"      (optional: skid marks + tyre
+ *                                                             smoke, three.js only, no files)
  *   3. refuses code a strict game host would refuse (eval, new Function, network, workers); the sound modules may
  *      fetch() their own recordings
  *   4. writes dist/types.d.ts and dist/registry.json (version, needs, modules, presets, tuning ranges)
@@ -34,6 +36,7 @@ const MODULES = [
   { name: 'car/sound', src: 'src/sound.js', out: 'car-sound.module.js', allow: ['fetch()'] },
   { name: 'car/engine-fx', src: 'src/engine-fx.js', out: 'car-engine-fx.module.js', allow: [] },
   { name: 'car/engine-sound', src: 'src/engine-sound.js', out: 'car-engine-sound.module.js', allow: ['fetch()'] },
+  { name: 'car/effects', src: 'src/effects.js', out: 'car-effects.module.js', allow: [] },
 ];
 
 const errors = [];
@@ -96,6 +99,22 @@ if (CAR.version !== VERSION) fail(`src/index.js VERSION is ${CAR.version} but pa
     }
     car.remove();
   }
+  {
+    const { createCarEffects } = await import(pathToFileURL(at('src/effects.js')).href);
+    const { Scene } = await import('three');
+    const warn = console.warn; console.warn = () => {};
+    const car = CAR.create({ physics: CAR.createPhysics({ floor: 50 }) });
+    console.warn = warn;
+    const fx = createCarEffects(new Scene(), car);
+    const have = Object.keys(fx);
+    const listed = block('CarEffects');
+    for (const k of have) if (!listed.includes(k)) fail(`the car effects have "${k}" but src/types.d.ts interface CarEffects does not list it`);
+    for (const k of listed) if (!have.includes(k)) fail(`interface CarEffects lists "${k}" but the car effects have no such thing`);
+    const opts = block('CarEffectsOptions');
+    for (const k of Object.keys(fx.options)) if (!opts.includes(k)) fail(`option "${k}" of the car effects is not in src/types.d.ts interface CarEffectsOptions`);
+    for (const k of opts) if (!(k in fx.options)) fail(`interface CarEffectsOptions lists "${k}" but the car effects have no such option`);
+    fx.dispose(); car.remove();
+  }
   const fxKeys = block('EngineFx');
   for (const k of ['output', 'update', 'options', 'stats', 'boost', 'dispose']) if (!fxKeys.includes(k)) fail(`interface EngineFx is missing "${k}"`);
 }
@@ -140,7 +159,7 @@ const registry = {
     const m = JSON.parse(readFileSync(at(`assets/sounds/engines/${f}`), 'utf8'));
     return [m.name, { title: m.title, cylinders: m.cylinders, redline: m.redline, files: [`assets/sounds/engines/${f}`, `assets/sounds/engines/${m.file}`], bytes: statSync(at(`assets/sounds/engines/${m.file}`)).size }];
   })),
-  optional: { 'car/sound': 'the car\'s sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo, tyres, road, wind, bumps, crashes', 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)' },
+  optional: { 'car/sound': 'the car\'s sound: a real recorded engine (loaded from assets/sounds/engines/ next to the library), pops, turbo blow-off, tyres, bumps, crashes', 'car/engine-fx': 'exhaust pops & bangs + turbo, synthesised (no files)', 'car/engine-sound': 'recorded engine sound packs (loads audio files)', 'car/effects': 'skid marks and tyre smoke from the wheels (three.js meshes, no files): createCarEffects(scene, cars).update(dt) every frame' },
   presets: Object.fromEntries(Object.entries(lib.PRESETS)),
   tuning: Object.fromEntries(Object.entries(CAR.tuning).map(([k, [min, max, unit]]) => [k, { min, max, unit }])),
   controls: { throttle: '0..1', brake: '0..1 (held at a standstill: reverse)', steer: '-1 left .. 1 right', handbrake: 'boolean' },
