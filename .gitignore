@@ -10,3 +10,5 @@ CLAUDE.md
 *.log
 # tyre sounds: local test sprite until a source cleared for publishing is chosen
 assets/sounds/tyres/
+# owner-supplied models for local tries (not ours to publish)
+assets/models/local/
